@@ -2005,3 +2005,119 @@ def test_rank_candidates_for_job_validates_complete_batch():
             summary["overall_score"]
             == result["scoring"]["overall_score"]
         )
+
+
+def test_rank_candidates_for_job_completes_end_to_end_pipeline():
+    from unittest.mock import patch
+
+    from src.matcher import (
+        rank_candidates_for_job,
+        validate_ranking_summary,
+    )
+
+    candidates = [
+        {
+            "name": "Senior Python Candidate",
+            "skills": ["Python", "SQL"],
+            "education": ["BSc Computer Science"],
+            "certifications": [],
+            "experience_records": [
+                {
+                    "start_date": "2020-01",
+                    "end_date": "2026-01",
+                }
+            ],
+            "total_experience_months": 72,
+        },
+        {
+            "name": "Junior Python Candidate",
+            "skills": ["Python"],
+            "education": ["BSc Computer Science"],
+            "certifications": [],
+            "experience_records": [
+                {
+                    "start_date": "2025-01",
+                    "end_date": "2026-01",
+                }
+            ],
+            "total_experience_months": 12,
+        },
+    ]
+
+    job = {
+        "job_title": "Python Developer",
+        "department": "Engineering",
+        "description": (
+            "Develop and maintain Python applications "
+            "and data-processing services."
+        ),
+        "required_skills": ["Python"],
+        "preferred_skills": ["SQL"],
+        "minimum_experience_months": 24,
+        "education_requirements": ["BSc Computer Science"],
+        "certifications": [],
+        "location": "Remote",
+        "work_arrangement": "Remote",
+        "employment_type": "Full-time",
+        "terms_and_conditions": "Standard employment terms.",
+        "decision_rules": {
+            "min_overall_score": 70.0,
+            "require_mandatory_requirements": True,
+            "require_semantic_threshold": False,
+        },
+    }
+
+    semantic_result = {
+        "score": 85.0,
+        "threshold": 75.0,
+        "meets_threshold": True,
+        "model": "test-model",
+    }
+
+    with patch(
+        "src.matcher.match_semantic_requirements",
+        return_value=semantic_result,
+    ):
+        results = rank_candidates_for_job(
+            candidates,
+            job,
+        )
+
+    assert len(results) == 2
+
+    # The complete pipeline must produce ranking metadata.
+    assert [result["rank"] for result in results] == [1, 2]
+
+    # The candidate meeting the mandatory experience requirement
+    # must be qualified.
+    assert results[0]["candidate_name"] == (
+        "Senior Python Candidate"
+    )
+    assert results[0]["decision"]["eligible"] is True
+
+    # The junior candidate must fail the mandatory experience
+    # requirement.
+    assert results[1]["candidate_name"] == (
+        "Junior Python Candidate"
+    )
+    assert results[1]["decision"]["eligible"] is False
+
+    for result in results:
+        assert "explanation" in result
+        assert "score_consistency" in result
+        assert "final_result" in result
+        assert "ranking_summary" in result
+
+        summary = result["ranking_summary"]
+
+        validation = validate_ranking_summary(summary)
+
+        assert validation["valid"] is True
+        assert summary["rank"] == result["rank"]
+        assert summary["candidate_name"] == result[
+            "candidate_name"
+        ]
+        assert summary["job_title"] == result["job_title"]
+        assert summary["overall_score"] == result[
+            "scoring"
+        ]["overall_score"]
