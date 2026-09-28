@@ -2,6 +2,8 @@
 
 from typing import Dict, List, Optional
 
+from src.nlp_parser import normalize_skills
+
 
 def validate_job_requirements(job: Dict) -> Dict:
     """Validate the structure of an employer job requirement profile."""
@@ -81,10 +83,17 @@ def normalize_job_requirements(job: Dict) -> Dict:
             normalized.get(field, "").split()
         ).strip()
 
-    # Normalize collection fields
+    # Normalize employer skills through the canonical taxonomy
+    normalized["required_skills"] = normalize_skills(
+        normalized.get("required_skills", [])
+    )
+
+    normalized["preferred_skills"] = normalize_skills(
+        normalized.get("preferred_skills", [])
+    )
+
+    # Normalize other collection fields
     for field in (
-        "required_skills",
-        "preferred_skills",
         "education_requirements",
         "certifications",
         "screening_questions",

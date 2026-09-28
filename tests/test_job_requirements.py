@@ -102,3 +102,35 @@ def test_prepare_job_for_matching():
     assert prepared["work_arrangement"] == "Hybrid"
     assert prepared["employment_type"] == "Full-time"
     assert len(prepared["screening_questions"]) == 1
+
+
+def test_normalize_job_requirements_uses_skill_taxonomy():
+    job = {
+        "job_title": "Software Developer",
+        "required_skills": [
+            "python",
+            "PY",
+            "javascript",
+            "js",
+            "postgres",
+        ],
+        "preferred_skills": [
+            "ML",
+            "sklearn",
+            "docker",
+        ],
+    }
+
+    normalized = normalize_job_requirements(job)
+
+    assert normalized["required_skills"] == [
+        "Python",
+        "JavaScript",
+        "PostgreSQL",
+    ]
+
+    assert normalized["preferred_skills"] == [
+        "Machine Learning",
+        "Scikit-learn",
+        "Docker",
+    ]
