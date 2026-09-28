@@ -22,3 +22,4 @@ WEIGHTS = {
 assert abs(sum(WEIGHTS.values()) - 1.0) < 1e-9, "Weights must sum to 1.0"
 
 ANONYMIZE_BY_DEFAULT = True
+
