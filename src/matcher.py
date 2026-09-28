@@ -184,3 +184,59 @@ def match_education_requirements(
         "score": score,
         "meets_requirement": len(missing) == 0,
     }
+
+
+def match_certification_requirements(
+    candidate_certifications: List[str],
+    required_certifications: List[str],
+) -> Dict:
+    """Compare candidate certifications against employer requirements."""
+
+    candidate_entries = {
+        " ".join(str(value).strip().lower().split())
+        for value in candidate_certifications
+        if str(value).strip()
+    }
+
+    required_entries = {
+        " ".join(str(value).strip().lower().split())
+        for value in required_certifications
+        if str(value).strip()
+    }
+
+    if not required_entries:
+        return {
+            "matched_certifications": [],
+            "missing_certifications": [],
+            "required_count": 0,
+            "matched_count": 0,
+            "score": 100.0,
+            "meets_requirement": True,
+        }
+
+    matched = []
+    missing = []
+
+    for requirement in sorted(required_entries):
+        if any(
+            requirement in candidate
+            or candidate in requirement
+            for candidate in candidate_entries
+        ):
+            matched.append(requirement)
+        else:
+            missing.append(requirement)
+
+    score = round(
+        (len(matched) / len(required_entries)) * 100,
+        2,
+    )
+
+    return {
+        "matched_certifications": matched,
+        "missing_certifications": missing,
+        "required_count": len(required_entries),
+        "matched_count": len(matched),
+        "score": score,
+        "meets_requirement": len(missing) == 0,
+    }

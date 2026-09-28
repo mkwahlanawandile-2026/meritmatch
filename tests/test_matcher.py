@@ -225,3 +225,63 @@ def test_match_education_requirements_empty():
     assert result["missing_requirements"] == []
     assert result["score"] == 100.0
     assert result["meets_requirement"] is True
+
+
+def test_match_certification_requirements_met():
+    from src.matcher import match_certification_requirements
+
+    result = match_certification_requirements(
+        [
+            "AWS Cloud Practitioner",
+            "Microsoft Azure Fundamentals",
+        ],
+        [
+            "AWS Cloud Practitioner",
+        ],
+    )
+
+    assert result["matched_certifications"] == [
+        "aws cloud practitioner",
+    ]
+    assert result["missing_certifications"] == []
+    assert result["required_count"] == 1
+    assert result["matched_count"] == 1
+    assert result["score"] == 100.0
+    assert result["meets_requirement"] is True
+
+
+def test_match_certification_requirements_partial():
+    from src.matcher import match_certification_requirements
+
+    result = match_certification_requirements(
+        [
+            "AWS Cloud Practitioner",
+        ],
+        [
+            "AWS Cloud Practitioner",
+            "Cisco Certified Network Associate",
+        ],
+    )
+
+    assert result["matched_certifications"] == [
+        "aws cloud practitioner",
+    ]
+    assert result["missing_certifications"] == [
+        "cisco certified network associate",
+    ]
+    assert result["score"] == 50.0
+    assert result["meets_requirement"] is False
+
+
+def test_match_certification_requirements_empty():
+    from src.matcher import match_certification_requirements
+
+    result = match_certification_requirements(
+        ["AWS Cloud Practitioner"],
+        [],
+    )
+
+    assert result["matched_certifications"] == []
+    assert result["missing_certifications"] == []
+    assert result["score"] == 100.0
+    assert result["meets_requirement"] is True
