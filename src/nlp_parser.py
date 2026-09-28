@@ -731,3 +731,129 @@ def parse_resume(text: str) -> Dict:
         "certifications": extract_certifications(text),
         "sections": detect_sections(text),
     }
+
+
+def normalize_experience_record(record):
+    """Normalize a single extracted experience record."""
+    normalized = dict(record)
+
+    job_title = normalized.get("job_title")
+    employer = normalized.get("employer")
+
+    if job_title:
+        normalized["job_title"] = " ".join(job_title.split()).strip()
+
+    if employer:
+        normalized["employer"] = " ".join(employer.split()).strip()
+
+    start_date = normalized.get("start_date")
+    end_date = normalized.get("end_date")
+
+    if start_date:
+        normalized["start_date"] = start_date.strip()
+
+    if end_date:
+        normalized["end_date"] = end_date.strip()
+
+    duration = normalized.get("duration_months")
+
+    if duration is not None:
+        try:
+            normalized["duration_months"] = int(duration)
+        except (TypeError, ValueError):
+            normalized["duration_months"] = 0
+
+    normalized["is_current"] = (
+        str(end_date).strip().lower()
+        in {"present", "current", "now", "ongoing"}
+    )
+
+    return normalized
+
+
+def normalize_experience_records(records):
+    """Normalize a collection of experience records."""
+    if not records:
+        return []
+
+    return [
+        normalize_experience_record(record)
+        for record in records
+        if isinstance(record, dict)
+    ]
+
+
+def calculate_total_experience_months(records):
+    """Calculate total experience while avoiding overlapping periods."""
+    if not records:
+        return 0
+
+    intervals = []
+
+    for record in records:
+        start = record.get("start_date")
+        end = record.get("end_date")
+
+        if not start:
+            continue
+
+        try:
+            start_year, start_month = map(int, start.split("-"))
+        except (ValueError, AttributeError):
+            continue
+
+        if end and str(end).strip().lower() in {
+            "present",
+            "current",
+            "now",
+            "ongoing",
+        }:
+            today = date.today()
+            end_year = today.year
+            end_month = today.month
+        else:
+            try:
+                end_year, end_month = map(int, str(end).split("-"))
+            except (ValueError, AttributeError):
+                continue
+
+        start_index = start_year * 12 + start_month
+        end_index = end_year * 12 + end_month
+
+        if end_index < start_index:
+            continue
+
+        intervals.append((start_index, end_index))
+
+    if not intervals:
+        return 0
+
+    intervals.sort()
+
+    merged = []
+    current_start, current_end = intervals[0]
+
+    for start, end in intervals[1:]:
+        if start <= current_end + 1:
+            current_end = max(current_end, end)
+        else:
+            merged.append((current_start, current_end))
+            current_start, current_end = start, end
+
+    merged.append((current_start, current_end))
+
+    return sum(
+        end - start + 1
+        for start, end in merged
+    )
+
+
+def get_current_experience(records):
+    """Return the current employment record, if one exists."""
+    normalized_records = normalize_experience_records(records)
+
+    for record in normalized_records:
+        if record.get("is_current"):
+            return record
+
+    return None

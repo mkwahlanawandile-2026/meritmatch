@@ -1,15 +1,19 @@
 from src.nlp_parser import (
     calculate_experience_months,
+    calculate_total_experience_months,
     detect_sections,
     extract_certifications,
     extract_education,
-    extract_email,
     extract_experience,
     extract_experience_dates,
     extract_experience_records,
+    extract_email,
     extract_name,
     extract_phone,
     extract_skills,
+    get_current_experience,
+    normalize_experience_record,
+    normalize_experience_records,
     parse_resume,
 )
 
@@ -276,3 +280,118 @@ Data Analyst | Example Solutions | Apr 2023 - Present
     assert len(profile["experience_records"]) == 2
     assert profile["experience_records"][0]["job_title"] == "Software Developer"
     assert profile["experience_records"][1]["job_title"] == "Data Analyst"
+def test_normalize_experience_record():
+    record = {
+        "job_title": "  Software   Developer  ",
+        "employer": "  ABC   Technologies ",
+        "start_date": "2020-01",
+        "end_date": "2023-03",
+        "duration_months": 39,
+    }
+
+    normalized = normalize_experience_record(record)
+
+    assert normalized["job_title"] == "Software Developer"
+    assert normalized["employer"] == "ABC Technologies"
+    assert normalized["start_date"] == "2020-01"
+    assert normalized["end_date"] == "2023-03"
+    assert normalized["duration_months"] == 39
+    assert normalized["is_current"] is False
+
+
+def test_normalize_current_experience_record():
+    record = {
+        "job_title": "Data Analyst",
+        "employer": "Example Solutions",
+        "start_date": "2023-04",
+        "end_date": "Present",
+        "duration_months": 42,
+    }
+
+    normalized = normalize_experience_record(record)
+
+    assert normalized["is_current"] is True
+
+
+def test_normalize_experience_records():
+    records = [
+        {
+            "job_title": "  Software   Developer ",
+            "employer": " ABC Technologies ",
+            "start_date": "2020-01",
+            "end_date": "2023-03",
+            "duration_months": 39,
+        },
+        {
+            "job_title": " Data Analyst ",
+            "employer": " Example Solutions ",
+            "start_date": "2023-04",
+            "end_date": "Present",
+            "duration_months": 42,
+        },
+    ]
+
+    normalized = normalize_experience_records(records)
+
+    assert len(normalized) == 2
+    assert normalized[0]["job_title"] == "Software Developer"
+    assert normalized[1]["job_title"] == "Data Analyst"
+    assert normalized[1]["is_current"] is True
+
+
+def test_calculate_total_experience_months():
+    records = [
+        {
+            "start_date": "2020-01",
+            "end_date": "2023-03",
+        },
+        {
+            "start_date": "2023-04",
+            "end_date": "2024-03",
+        },
+    ]
+
+    total = calculate_total_experience_months(records)
+
+    assert total == 51
+
+
+def test_overlapping_experience_is_not_double_counted():
+    records = [
+        {
+            "start_date": "2020-01",
+            "end_date": "2022-12",
+        },
+        {
+            "start_date": "2021-01",
+            "end_date": "2023-12",
+        },
+    ]
+
+    total = calculate_total_experience_months(records)
+
+    assert total == 48
+
+
+def test_get_current_experience():
+    records = [
+        {
+            "job_title": "Software Developer",
+            "employer": "ABC Technologies",
+            "start_date": "2020-01",
+            "end_date": "2023-03",
+        },
+        {
+            "job_title": "Data Analyst",
+            "employer": "Example Solutions",
+            "start_date": "2023-04",
+            "end_date": "Present",
+        },
+    ]
+
+    current = get_current_experience(records)
+
+    assert current is not None
+    assert current["job_title"] == "Data Analyst"
+    assert current["employer"] == "Example Solutions"
+    assert current["is_current"] is True
