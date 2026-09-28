@@ -285,3 +285,95 @@ def test_match_certification_requirements_empty():
     assert result["missing_certifications"] == []
     assert result["score"] == 100.0
     assert result["meets_requirement"] is True
+
+
+def test_match_candidate_to_job_fully_matched():
+    from src.matcher import match_candidate_to_job
+
+    candidate = {
+        "candidate_name": "Wandile",
+        "skills": ["Python", "SQL", "Docker"],
+        "total_experience_months": 36,
+        "education": ["BSc Computer Science"],
+        "certifications": ["AWS Certified Cloud Practitioner"],
+    }
+
+    job = {
+        "job_title": "Python Developer",
+        "required_skills": ["Python", "SQL"],
+        "preferred_skills": ["Docker"],
+        "minimum_experience_months": 24,
+        "education_requirements": ["BSc Computer Science"],
+        "certifications": ["AWS Certified Cloud Practitioner"],
+    }
+
+    result = match_candidate_to_job(candidate, job)
+
+    assert result["candidate_name"] == "Wandile"
+    assert result["job_title"] == "Python Developer"
+    assert result["required_requirements_met"] is True
+    assert result["required_skills"]["score"] == 100.0
+    assert result["preferred_skills"]["score"] == 100.0
+    assert result["experience"]["score"] == 100.0
+    assert result["education"]["score"] == 100.0
+    assert result["certifications"]["score"] == 100.0
+
+
+def test_match_candidate_to_job_missing_required_requirement():
+    from src.matcher import match_candidate_to_job
+
+    candidate = {
+        "candidate_name": "Candidate A",
+        "skills": ["Python"],
+        "total_experience_months": 12,
+        "education": ["BSc Computer Science"],
+        "certifications": [],
+    }
+
+    job = {
+        "job_title": "Software Developer",
+        "required_skills": ["Python", "SQL"],
+        "preferred_skills": ["Docker"],
+        "minimum_experience_months": 24,
+        "education_requirements": ["BSc Computer Science"],
+        "certifications": [],
+    }
+
+    result = match_candidate_to_job(candidate, job)
+
+    assert result["required_requirements_met"] is False
+    assert "sql" in result["required_skills"]["missing_skills"]
+    assert result["experience"]["meets_requirement"] is False
+    assert result["education"]["meets_requirement"] is True
+    assert result["certifications"]["meets_requirement"] is True
+
+
+def test_match_candidate_to_job_returns_transparent_component_results():
+    from src.matcher import match_candidate_to_job
+
+    candidate = {
+        "candidate_name": "Candidate B",
+        "skills": ["Python"],
+        "total_experience_months": 24,
+        "education": [],
+        "certifications": [],
+    }
+
+    job = {
+        "job_title": "Python Developer",
+        "required_skills": ["Python"],
+        "preferred_skills": ["Docker"],
+        "minimum_experience_months": 24,
+        "education_requirements": [],
+        "certifications": [],
+    }
+
+    result = match_candidate_to_job(candidate, job)
+
+    assert "required_skills" in result
+    assert "preferred_skills" in result
+    assert "experience" in result
+    assert "education" in result
+    assert "certifications" in result
+    assert "component_scores" in result
+    assert result["required_skills"]["all_required_skills_met"] is True

@@ -240,3 +240,70 @@ def match_certification_requirements(
         "score": score,
         "meets_requirement": len(missing) == 0,
     }
+
+
+def match_candidate_to_job(
+    candidate_profile: Dict,
+    job_requirements: Dict,
+) -> Dict:
+    """Combine all candidate-to-job requirement matching results."""
+
+    if not isinstance(candidate_profile, dict):
+        raise TypeError("Candidate profile must be a dictionary.")
+
+    if not isinstance(job_requirements, dict):
+        raise TypeError("Job requirements must be a dictionary.")
+
+    required_skills_result = match_required_skills(
+        candidate_profile.get("skills", []),
+        job_requirements.get("required_skills", []),
+    )
+
+    preferred_skills_result = match_preferred_skills(
+        candidate_profile.get("skills", []),
+        job_requirements.get("preferred_skills", []),
+    )
+
+    experience_result = match_experience_requirement(
+        candidate_profile.get("total_experience_months", 0),
+        job_requirements.get("minimum_experience_months", 0),
+    )
+
+    education_result = match_education_requirements(
+        candidate_profile.get("education", []),
+        job_requirements.get("education_requirements", []),
+    )
+
+    certification_result = match_certification_requirements(
+        candidate_profile.get("certifications", []),
+        job_requirements.get("certifications", []),
+    )
+
+    required_requirements_met = all(
+        [
+            required_skills_result["all_required_skills_met"],
+            experience_result["meets_requirement"],
+            education_result["meets_requirement"],
+            certification_result["meets_requirement"],
+        ]
+    )
+
+    component_scores = {
+        "required_skills": required_skills_result["score"],
+        "preferred_skills": preferred_skills_result["score"],
+        "experience": experience_result["score"],
+        "education": education_result["score"],
+        "certifications": certification_result["score"],
+    }
+
+    return {
+        "candidate_name": candidate_profile.get("candidate_name", ""),
+        "job_title": job_requirements.get("job_title", ""),
+        "required_requirements_met": required_requirements_met,
+        "component_scores": component_scores,
+        "required_skills": required_skills_result,
+        "preferred_skills": preferred_skills_result,
+        "experience": experience_result,
+        "education": education_result,
+        "certifications": certification_result,
+    }
