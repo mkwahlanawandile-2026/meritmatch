@@ -924,15 +924,23 @@ def rank_candidates_for_job(
 
         ranked_results.append(result)
 
-    ranked_results.sort(
-        key=lambda result: result.get(
-            "scoring",
-            {},
-        ).get(
-            "overall_score",
-            0.0,
-        ),
-        reverse=True,
-    )
+    def ranking_key(result):
+        decision = result.get("decision", {})
+        scoring = result.get("scoring", {})
+
+        qualified = decision.get("eligible", False)
+        overall_score = scoring.get("overall_score", 0.0)
+        candidate_name = result.get("candidate_name", "").lower()
+
+        return (
+            not qualified,
+            -overall_score,
+            candidate_name,
+        )
+
+    ranked_results.sort(key=ranking_key)
+
+    for rank, result in enumerate(ranked_results, start=1):
+        result["rank"] = rank
 
     return ranked_results
