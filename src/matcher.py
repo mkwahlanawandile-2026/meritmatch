@@ -296,11 +296,19 @@ def match_candidate_to_job(
         "certifications": certification_result["score"],
     }
 
+    scoring_result = calculate_overall_score(
+        skills_score=required_skills_result["score"],
+        experience_score=experience_result["score"],
+        education_score=education_result["score"],
+        semantic_score=0.0,
+    )
+
     return {
         "candidate_name": candidate_profile.get("candidate_name", ""),
         "job_title": job_requirements.get("job_title", ""),
         "required_requirements_met": required_requirements_met,
         "component_scores": component_scores,
+        "scoring": scoring_result,
         "required_skills": required_skills_result,
         "preferred_skills": preferred_skills_result,
         "experience": experience_result,

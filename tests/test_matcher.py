@@ -434,3 +434,34 @@ def test_calculate_overall_score_clamps_invalid_ranges():
     assert result["component_scores"]["experience"] == 0.0
     assert result["component_scores"]["education"] == 80.0
     assert result["component_scores"]["semantic"] == 0.0
+
+
+def test_match_candidate_to_job_includes_overall_scoring():
+    from src.matcher import match_candidate_to_job
+
+    candidate = {
+        "candidate_name": "Candidate C",
+        "skills": ["Python", "SQL"],
+        "total_experience_months": 36,
+        "education": ["BSc Computer Science"],
+        "certifications": [],
+    }
+
+    job = {
+        "job_title": "Python Developer",
+        "required_skills": ["Python", "SQL"],
+        "preferred_skills": [],
+        "minimum_experience_months": 24,
+        "education_requirements": ["BSc Computer Science"],
+        "certifications": [],
+    }
+
+    result = match_candidate_to_job(candidate, job)
+
+    assert "scoring" in result
+    assert "overall_score" in result["scoring"]
+    assert "weights" in result["scoring"]
+    assert "weighted_scores" in result["scoring"]
+
+    # Semantic similarity is not implemented yet.
+    assert result["scoring"]["component_scores"]["semantic"] == 0.0
