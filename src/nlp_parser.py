@@ -454,6 +454,92 @@ def extract_experience(text: str) -> List[str]:
     ]
 
 
+def extract_experience_records(text: str) -> List[Dict]:
+    """
+    Extract structured employment records from the experience section.
+
+    Each record contains:
+        - job_title
+        - employer
+        - start_date
+        - end_date
+        - duration_months
+        - duration_years
+
+    The parser remains industry-neutral. It does not assume a specific
+    company, department, profession, or employer requirement.
+    """
+    sections = detect_sections(text)
+    experience_text = sections.get("experience", "")
+
+    if not experience_text:
+        return []
+
+    lines = [
+        line.strip()
+        for line in experience_text.splitlines()
+        if line.strip()
+    ]
+
+    records = []
+    current_record = None
+
+    for line in lines:
+        parsed_date = _parse_experience_range(line)
+
+        # ---------------------------------------------------------------
+        # A date line completes the current employment record.
+        # ---------------------------------------------------------------
+        if parsed_date:
+            start_date, end_date, duration_months, duration_years = parsed_date
+
+            if current_record is None:
+                current_record = {
+                    "job_title": "",
+                    "employer": "",
+                }
+
+            current_record.update({
+                "start_date": start_date,
+                "end_date": end_date,
+                "duration_months": duration_months,
+                "duration_years": duration_years,
+            })
+
+            # Only save records that contain useful employment information.
+            if (
+                current_record["job_title"]
+                or current_record["employer"]
+            ):
+                records.append(current_record)
+
+            current_record = None
+            continue
+
+        # ---------------------------------------------------------------
+        # First non-date line = job title.
+        # ---------------------------------------------------------------
+        if current_record is None:
+            current_record = {
+                "job_title": line,
+                "employer": "",
+            }
+
+        # ---------------------------------------------------------------
+        # Second non-date line = employer.
+        # ---------------------------------------------------------------
+        elif not current_record["employer"]:
+            current_record["employer"] = line
+
+        # ---------------------------------------------------------------
+        # Additional lines are currently ignored.
+        # Responsibilities/descriptions will be handled later.
+        # ---------------------------------------------------------------
+        else:
+            continue
+
+    return records
+
 # ---------------------------------------------------------------------------
 # Certifications
 # ---------------------------------------------------------------------------
@@ -476,14 +562,16 @@ def extract_certifications(text: str) -> List[str]:
 # ---------------------------------------------------------------------------
 # Complete candidate profile
 # ---------------------------------------------------------------------------
-
 def parse_resume(text: str) -> Dict:
     """Parse extracted resume text into a structured candidate profile."""
 
     experience = extract_experience(text)
+
     experience_dates = extract_experience_dates(
         detect_sections(text).get("experience", "")
     )
+
+    experience_records = extract_experience_records(text)
 
     return {
         "name": extract_name(text),
@@ -493,6 +581,7 @@ def parse_resume(text: str) -> Dict:
         "education": extract_education(text),
         "experience": experience,
         "experience_dates": experience_dates,
+        "experience_records": experience_records,
         "certifications": extract_certifications(text),
         "sections": detect_sections(text),
     }
