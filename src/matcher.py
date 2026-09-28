@@ -42,3 +42,43 @@ def match_required_skills(
         "score": score,
         "all_required_skills_met": len(missing) == 0,
     }
+
+
+def match_preferred_skills(
+    candidate_skills: List[str],
+    preferred_skills: List[str],
+) -> Dict:
+    """Compare candidate skills against preferred employer skills."""
+
+    candidate_set = {
+        str(skill).strip().lower()
+        for skill in candidate_skills
+        if str(skill).strip()
+    }
+
+    preferred_set = {
+        str(skill).strip().lower()
+        for skill in preferred_skills
+        if str(skill).strip()
+    }
+
+    matched = sorted(candidate_set & preferred_set)
+    missing = sorted(preferred_set - candidate_set)
+
+    total_preferred = len(preferred_set)
+
+    if total_preferred == 0:
+        score = 100.0
+    else:
+        score = round(
+            (len(matched) / total_preferred) * 100,
+            2,
+        )
+
+    return {
+        "matched_skills": matched,
+        "missing_skills": missing,
+        "preferred_skill_count": total_preferred,
+        "matched_skill_count": len(matched),
+        "score": score,
+    }

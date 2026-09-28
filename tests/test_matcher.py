@@ -80,3 +80,46 @@ def test_match_required_skills_empty_candidate():
     ]
     assert result["score"] == 0.0
     assert result["all_required_skills_met"] is False
+
+
+def test_match_preferred_skills():
+    from src.matcher import match_preferred_skills
+
+    result = match_preferred_skills(
+        [
+            "Python",
+            "Docker",
+            "Git",
+        ],
+        [
+            "Docker",
+            "AWS",
+            "Git",
+        ],
+    )
+
+    assert result["matched_skills"] == [
+        "docker",
+        "git",
+    ]
+
+    assert result["missing_skills"] == [
+        "aws",
+    ]
+
+    assert result["preferred_skill_count"] == 3
+    assert result["matched_skill_count"] == 2
+    assert result["score"] == 66.67
+
+
+def test_match_preferred_skills_empty_requirements():
+    from src.matcher import match_preferred_skills
+
+    result = match_preferred_skills(
+        ["Python"],
+        [],
+    )
+
+    assert result["matched_skills"] == []
+    assert result["missing_skills"] == []
+    assert result["score"] == 100.0
