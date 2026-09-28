@@ -855,4 +855,45 @@ def run_matching_pipeline(
 
     validated_result["explanation"] = explanation
 
+    validated_result["final_result"] = {
+        "candidate": {
+            "name": validated_result.get(
+                "candidate_name",
+                "",
+            ),
+        },
+        "job": {
+            "title": validated_result.get(
+                "job_title",
+                "",
+            ),
+        },
+        "score": validated_result.get(
+            "scoring",
+            {},
+        ),
+        "requirements": {
+            "mandatory_met": validated_result.get(
+                "required_requirements_met",
+                False,
+            ),
+        },
+        "decision": validated_result.get(
+            "decision",
+            {},
+        ),
+        "explanation": validated_result.get(
+            "explanation",
+            {},
+        ),
+        "score_consistency": validated_result.get(
+            "score_consistency",
+            {},
+        ),
+        "decision_rules": validated_result.get(
+            "decision_rules",
+            {},
+        ),
+    }
+
     return validated_result

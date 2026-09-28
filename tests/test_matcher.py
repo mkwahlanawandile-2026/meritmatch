@@ -1147,3 +1147,54 @@ def test_run_matching_pipeline_includes_explanation():
     assert isinstance(result["explanation"], dict)
     assert "strengths" in result["explanation"]
     assert "gaps" in result["explanation"]
+
+
+def test_run_matching_pipeline_builds_final_result_structure():
+    from unittest.mock import patch
+    from src.matcher import run_matching_pipeline
+
+    candidate = {
+        "name": "Candidate R",
+        "skills": ["python"],
+        "education": ["BSc Computer Science"],
+        "certifications": [],
+        "experience_records": [],
+        "total_experience_months": 48,
+    }
+
+    job = {
+        "job_title": "Python Developer",
+        "description": "Develop Python applications.",
+        "required_skills": ["Python"],
+        "preferred_skills": [],
+        "minimum_experience_months": 24,
+        "education_requirements": [],
+        "certifications": [],
+        "decision_rules": {
+            "min_overall_score": 70.0,
+            "require_mandatory_requirements": True,
+            "require_semantic_threshold": False,
+        },
+    }
+
+    with patch(
+        "src.matcher.match_semantic_requirements",
+        return_value={
+            "score": 85.0,
+            "threshold": 75.0,
+            "meets_threshold": True,
+            "model": "test-model",
+        },
+    ):
+        result = run_matching_pipeline(candidate, job)
+
+    final_result = result["final_result"]
+
+    assert final_result["candidate"]["name"] == "Candidate R"
+    assert final_result["job"]["title"] == "Python Developer"
+    assert "overall_score" in final_result["score"]
+    assert "mandatory_met" in final_result["requirements"]
+    assert "decision" in final_result["decision"]
+    assert "strengths" in final_result["explanation"]
+    assert "score_consistency" in final_result
+    assert "min_overall_score" in final_result["decision_rules"]
