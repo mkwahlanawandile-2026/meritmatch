@@ -1,1 +1,1 @@
-# MeritMatch tests
+# MeritMatch test suite
