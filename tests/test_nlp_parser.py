@@ -585,3 +585,41 @@ def test_assess_candidate_profile_quality_detects_invalid_experience():
     assert quality["status"] == "invalid"
     assert quality["is_valid"] is False
     assert len(quality["issues"]) > 0
+
+
+def test_parse_resume_contains_profile_quality():
+    profile = parse_resume(SAMPLE_RESUME)
+
+    assert "profile_quality" in profile
+    assert isinstance(profile["profile_quality"], dict)
+    assert "status" in profile["profile_quality"]
+    assert "completeness_score" in profile["profile_quality"]
+    assert "issues" in profile["profile_quality"]
+    assert "warnings" in profile["profile_quality"]
+    assert "is_valid" in profile["profile_quality"]
+
+
+def test_parse_resume_profile_quality_for_complete_resume():
+    profile = parse_resume(SAMPLE_RESUME)
+
+    quality = profile["profile_quality"]
+
+    assert quality["status"] == "complete"
+    assert quality["completeness_score"] == 100.0
+    assert quality["is_valid"] is True
+    assert quality["issues"] == []
+
+
+def test_parse_resume_profile_quality_for_incomplete_resume():
+    text = """
+Jane Doe
+"""
+
+    profile = parse_resume(text)
+
+    quality = profile["profile_quality"]
+
+    assert quality["status"] == "incomplete"
+    assert quality["completeness_score"] == 20.0
+    assert quality["is_valid"] is True
+    assert len(quality["warnings"]) > 0

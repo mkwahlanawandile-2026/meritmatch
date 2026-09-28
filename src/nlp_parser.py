@@ -734,7 +734,7 @@ def parse_resume(text: str) -> Dict:
         normalized_experience
     )
 
-    return {
+    profile = {
         "name": extract_name(text),
         "email": extract_email(text),
         "phone": extract_phone(text),
@@ -748,6 +748,17 @@ def parse_resume(text: str) -> Dict:
         "certifications": extract_certifications(text),
         "sections": detect_sections(text),
     }
+
+    # Validate the complete candidate profile
+    profile = validate_candidate_profile(profile)
+
+    # Assess profile completeness and extraction quality
+    profile["profile_quality"] = assess_candidate_profile_quality(
+        profile
+    )
+
+    return profile
+
 
 def assess_candidate_profile_quality(profile: Dict) -> Dict:
     """Assess the completeness and quality of a parsed candidate profile."""
