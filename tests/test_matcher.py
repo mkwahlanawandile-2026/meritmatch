@@ -1898,3 +1898,110 @@ def test_rank_candidates_for_job_produces_valid_api_ready_summary():
     assert summary["rank"] == 1
     assert summary["candidate_name"] == "API Candidate"
     assert isinstance(summary["overall_score"], (int, float))
+
+
+def test_rank_candidates_for_job_validates_complete_batch():
+    from unittest.mock import patch
+
+    from src.matcher import (
+        rank_candidates_for_job,
+        validate_ranking_summary,
+    )
+
+    candidates = [
+        {
+            "name": "Charlie Candidate",
+            "skills": ["python"],
+            "education": [],
+            "certifications": [],
+            "experience_records": [
+                {
+                    "start_date": "2024-01",
+                    "end_date": "2026-01",
+                }
+            ],
+            "total_experience_months": 24,
+        },
+        {
+            "name": "Alice Candidate",
+            "skills": ["python"],
+            "education": [],
+            "certifications": [],
+            "experience_records": [
+                {
+                    "start_date": "2020-01",
+                    "end_date": "2026-01",
+                }
+            ],
+            "total_experience_months": 72,
+        },
+        {
+            "name": "Bob Candidate",
+            "skills": [],
+            "education": [],
+            "certifications": [],
+            "experience_records": [],
+            "total_experience_months": 0,
+        },
+    ]
+
+    job = {
+        "job_title": "Python Developer",
+        "required_skills": ["Python"],
+        "preferred_skills": [],
+        "minimum_experience_months": 24,
+        "education_requirements": [],
+        "certifications": [],
+        "decision_rules": {
+            "min_overall_score": 0.0,
+            "require_mandatory_requirements": True,
+            "require_semantic_threshold": False,
+        },
+    }
+
+    semantic_result = {
+        "score": 85.0,
+        "threshold": 75.0,
+        "meets_threshold": True,
+        "model": "test-model",
+    }
+
+    with patch(
+        "src.matcher.match_semantic_requirements",
+        return_value=semantic_result,
+    ):
+        results = rank_candidates_for_job(
+            candidates,
+            job,
+        )
+
+    assert len(results) == 3
+
+    # Qualified candidates must appear before the unqualified candidate.
+    assert results[0]["decision"]["eligible"] is True
+    assert results[1]["decision"]["eligible"] is True
+    assert results[2]["decision"]["eligible"] is False
+
+    # Every candidate receives a unique sequential rank.
+    assert [result["rank"] for result in results] == [1, 2, 3]
+
+    assert len(
+        {result["rank"] for result in results}
+    ) == 3
+
+    # Every ranking summary must satisfy the API contract.
+    for result in results:
+        summary = result["ranking_summary"]
+
+        validation = validate_ranking_summary(summary)
+
+        assert validation["valid"] is True
+        assert summary["rank"] == result["rank"]
+        assert (
+            summary["candidate_name"]
+            == result["candidate_name"]
+        )
+        assert (
+            summary["overall_score"]
+            == result["scoring"]["overall_score"]
+        )
