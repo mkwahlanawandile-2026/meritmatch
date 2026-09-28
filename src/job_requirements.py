@@ -60,6 +60,13 @@ def validate_job_requirements(job: Dict) -> Dict:
         0,
     )
 
+    decision_rules = validated.get("decision_rules", {})
+
+    if not isinstance(decision_rules, dict):
+        decision_rules = {}
+
+    validated["decision_rules"] = decision_rules
+
     return validated
 
 
@@ -162,5 +169,9 @@ def prepare_job_for_matching(job: Dict) -> Dict:
         "terms_and_conditions": normalized.get(
             "terms_and_conditions",
             "",
+        ),
+        "decision_rules": normalized.get(
+            "decision_rules",
+            {},
         ),
     }

@@ -134,3 +134,20 @@ def test_normalize_job_requirements_uses_skill_taxonomy():
         "Scikit-learn",
         "Docker",
     ]
+
+def test_job_decision_rules_are_preserved():
+    from src.job_requirements import prepare_job_for_matching
+
+    job = prepare_job_for_matching({
+        "job_title": "Software Developer",
+        "decision_rules": {
+            "min_overall_score": 80.0,
+            "require_mandatory_requirements": True,
+            "require_semantic_threshold": False,
+        },
+    })
+
+    assert job["decision_rules"]["min_overall_score"] == 80.0
+    assert job["decision_rules"]["require_mandatory_requirements"] is True
+    assert job["decision_rules"]["require_semantic_threshold"] is False
+

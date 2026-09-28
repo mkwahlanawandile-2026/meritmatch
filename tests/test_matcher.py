@@ -963,3 +963,46 @@ def test_determine_match_decision_can_disable_optional_rules():
     assert decision["eligible"] is True
     assert decision["overall_score"] == 90.0
 
+def test_match_candidate_to_job_uses_job_decision_rules():
+    from unittest.mock import patch
+
+    from src.matcher import match_candidate_to_job
+
+    candidate = {
+        "candidate_name": "Candidate N",
+        "skills": ["Python"],
+        "education": ["BSc Computer Science"],
+        "certifications": [],
+        "total_experience_months": 48,
+    }
+
+    job = {
+        "job_title": "Python Developer",
+        "required_skills": ["Python"],
+        "preferred_skills": [],
+        "minimum_experience_months": 24,
+        "education_requirements": [],
+        "certifications": [],
+        "decision_rules": {
+            "min_overall_score": 99.0,
+            "require_mandatory_requirements": True,
+            "require_semantic_threshold": False,
+        },
+    }
+
+    with patch(
+        "src.matcher.match_semantic_requirements",
+        return_value={
+            "score": 85.0,
+            "threshold": 75.0,
+            "meets_threshold": True,
+            "model": "test-model",
+        },
+    ):
+        result = match_candidate_to_job(candidate, job)
+
+    assert result["decision_rules"]["min_overall_score"] == 99.0
+    assert result["decision"]["decision"] == "NOT_QUALIFIED"
+    assert result["decision"]["eligible"] is False
+    assert result["decision"]["minimum_overall_score"] == 99.0
+

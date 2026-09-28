@@ -365,7 +365,7 @@ def match_candidate_to_job(
         semantic_score=semantic_result["score"],
     )
 
-    return {
+    result = {
         "candidate_name": candidate_profile.get("candidate_name", ""),
         "job_title": job_requirements.get("job_title", ""),
         "required_requirements_met": required_requirements_met,
@@ -377,7 +377,18 @@ def match_candidate_to_job(
         "experience": experience_result,
         "education": education_result,
         "certifications": certification_result,
+        "decision_rules": job_requirements.get(
+            "decision_rules",
+            {},
+        ),
     }
+
+    result["decision"] = determine_match_decision(
+        result,
+        result["decision_rules"],
+    )
+
+    return result
 
 
 def calculate_overall_score(
