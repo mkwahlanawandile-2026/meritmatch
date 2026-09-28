@@ -451,3 +451,61 @@ Data   Analyst | XYZ   Analytics | Jun 2023 - Present
         "XYZ Analytics"
     )
     assert profile["experience_records"][1]["is_current"] is True
+
+def test_validate_candidate_profile():
+    from src.nlp_parser import validate_candidate_profile
+
+    profile = {
+        "name": "  Jane Doe  ",
+        "email": " jane@example.com ",
+        "phone": None,
+        "skills": ["Python"],
+        "education": None,
+        "experience": ["Software Developer"],
+        "experience_dates": None,
+        "experience_records": [],
+        "certifications": None,
+        "total_experience_months": "39",
+        "current_experience": None,
+        "sections": {},
+    }
+
+    validated = validate_candidate_profile(profile)
+
+    assert validated["name"] == "Jane Doe"
+    assert validated["email"] == "jane@example.com"
+    assert validated["phone"] == ""
+    assert validated["skills"] == ["Python"]
+    assert validated["education"] == []
+    assert validated["experience_dates"] == []
+    assert validated["certifications"] == []
+    assert validated["total_experience_months"] == 39
+
+
+def test_validate_candidate_profile_handles_invalid_total_experience():
+    from src.nlp_parser import validate_candidate_profile
+
+    profile = {
+        "total_experience_months": "invalid",
+        "skills": [],
+        "education": [],
+        "experience": [],
+        "experience_dates": [],
+        "experience_records": [],
+        "certifications": [],
+        "sections": {},
+    }
+
+    validated = validate_candidate_profile(profile)
+
+    assert validated["total_experience_months"] == 0
+
+
+def test_validate_candidate_profile_rejects_invalid_profile():
+    from src.nlp_parser import validate_candidate_profile
+
+    try:
+        validate_candidate_profile([])
+        assert False
+    except TypeError as error:
+        assert str(error) == "Candidate profile must be a dictionary."

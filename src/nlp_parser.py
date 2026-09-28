@@ -749,6 +749,62 @@ def parse_resume(text: str) -> Dict:
         "sections": detect_sections(text),
     }
 
+def validate_candidate_profile(profile: Dict) -> Dict:
+    """Validate and normalize the structure of a parsed candidate profile."""
+    if not isinstance(profile, dict):
+        raise TypeError("Candidate profile must be a dictionary.")
+
+    validated = dict(profile)
+
+    # Safe defaults for core candidate fields
+    validated["name"] = str(validated.get("name") or "").strip()
+    validated["email"] = str(validated.get("email") or "").strip()
+    validated["phone"] = str(validated.get("phone") or "").strip()
+
+    # Ensure collection fields are always lists
+    for field in (
+        "skills",
+        "education",
+        "experience",
+        "experience_dates",
+        "experience_records",
+        "certifications",
+    ):
+        value = validated.get(field)
+
+        if value is None:
+            validated[field] = []
+        elif not isinstance(value, list):
+            validated[field] = [value]
+
+    # Experience total must always be a non-negative integer
+    total_experience = validated.get("total_experience_months", 0)
+
+    try:
+        total_experience = int(total_experience)
+    except (TypeError, ValueError):
+        total_experience = 0
+
+    validated["total_experience_months"] = max(
+        total_experience,
+        0,
+    )
+
+    # Current experience must be either a record or None
+    current_experience = validated.get("current_experience")
+
+    if current_experience is not None and not isinstance(
+        current_experience,
+        dict,
+    ):
+        validated["current_experience"] = None
+
+    # Sections should always be a dictionary
+    if not isinstance(validated.get("sections"), dict):
+        validated["sections"] = {}
+
+    return validated
+
 def normalize_experience_record(record):
     """Normalize a single extracted experience record."""
     normalized = dict(record)
