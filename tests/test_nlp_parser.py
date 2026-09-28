@@ -824,3 +824,63 @@ def test_normalize_candidate_profile_uses_skill_taxonomy():
         "PostgreSQL",
         "SQL",
     ]
+
+
+def test_prepare_candidate_for_matching():
+    from src.nlp_parser import prepare_candidate_for_matching
+
+    profile = {
+        "name": "Jane Doe",
+        "email": "JANE@EXAMPLE.COM",
+        "phone": "+27 71 123 4567",
+        "skills": [
+            "python",
+            "js",
+            "postgres",
+        ],
+        "education": [
+            "BSc Computer Science",
+        ],
+        "experience": [],
+        "experience_records": [
+            {
+                "job_title": "Software Developer",
+                "employer": "ABC Technologies",
+                "start_date": "2020-01",
+                "end_date": "2023-03",
+                "duration_months": 39,
+                "is_current": False,
+            }
+        ],
+        "certifications": [
+            "AWS Cloud Practitioner",
+        ],
+        "sections": {},
+    }
+
+    matching_profile = prepare_candidate_for_matching(profile)
+
+    assert matching_profile["candidate_name"] == "Jane Doe"
+
+    assert matching_profile["skills"] == [
+        "Python",
+        "JavaScript",
+        "PostgreSQL",
+    ]
+
+    assert matching_profile["total_experience_months"] == 39
+
+    assert matching_profile["experience_records"][0]["job_title"] == (
+        "Software Developer"
+    )
+
+    assert matching_profile["education"] == [
+        "BSc Computer Science"
+    ]
+
+    assert matching_profile["certifications"] == [
+        "AWS Cloud Practitioner"
+    ]
+
+    assert "email" not in matching_profile
+    assert "phone" not in matching_profile

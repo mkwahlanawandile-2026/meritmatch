@@ -918,6 +918,35 @@ def normalize_candidate_profile(profile: Dict) -> Dict:
 
     return normalized
 
+
+def prepare_candidate_for_matching(profile: Dict) -> Dict:
+    """Prepare a normalized candidate profile for job matching."""
+    normalized = normalize_candidate_profile(profile)
+
+    matching_profile = {
+        "candidate_name": normalized.get("name", ""),
+        "skills": normalized.get("skills", []),
+        "education": normalized.get("education", []),
+        "certifications": normalized.get("certifications", []),
+        "experience_records": normalized.get(
+            "experience_records",
+            [],
+        ),
+        "total_experience_months": normalized.get(
+            "total_experience_months",
+            0,
+        ),
+        "current_experience": normalized.get(
+            "current_experience"
+        ),
+        "profile_quality": normalized.get(
+            "profile_quality",
+            {},
+        ),
+    }
+
+    return matching_profile
+
 def assess_candidate_profile_quality(profile: Dict) -> Dict:
     """Assess the completeness and quality of a parsed candidate profile."""
     if not isinstance(profile, dict):
