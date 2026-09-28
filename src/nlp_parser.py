@@ -749,6 +749,111 @@ def parse_resume(text: str) -> Dict:
         "sections": detect_sections(text),
     }
 
+def assess_candidate_profile_quality(profile: Dict) -> Dict:
+    """Assess the completeness and quality of a parsed candidate profile."""
+    if not isinstance(profile, dict):
+        raise TypeError("Candidate profile must be a dictionary.")
+
+    issues = []
+    warnings = []
+
+    name = str(profile.get("name") or "").strip()
+    email = str(profile.get("email") or "").strip()
+    skills = profile.get("skills") or []
+    education = profile.get("education") or []
+    experience_records = profile.get("experience_records") or []
+    certifications = profile.get("certifications") or []
+
+    # Basic identity checks
+    if not name:
+        issues.append("Candidate name is missing.")
+
+    if not email:
+        warnings.append("Candidate email is missing.")
+
+    # Skills check
+    if not skills:
+        warnings.append("No skills were detected.")
+
+    # Education check
+    if not education:
+        warnings.append("No education information was detected.")
+
+    # Experience checks
+    if not experience_records:
+        warnings.append("No structured experience records were detected.")
+
+    for index, record in enumerate(experience_records, start=1):
+        if not isinstance(record, dict):
+            issues.append(
+                f"Experience record {index} is not a valid record."
+            )
+            continue
+
+        if not str(record.get("job_title") or "").strip():
+            warnings.append(
+                f"Experience record {index} is missing a job title."
+            )
+
+        if not str(record.get("employer") or "").strip():
+            warnings.append(
+                f"Experience record {index} is missing an employer."
+            )
+
+        if not str(record.get("start_date") or "").strip():
+            warnings.append(
+                f"Experience record {index} is missing a start date."
+            )
+
+        duration = record.get("duration_months")
+
+        if duration is not None:
+            try:
+                if int(duration) < 0:
+                    issues.append(
+                        f"Experience record {index} has a negative duration."
+                    )
+            except (TypeError, ValueError):
+                issues.append(
+                    f"Experience record {index} has an invalid duration."
+                )
+
+    # Certification information is optional, so it is only reported
+    # when absent as a warning rather than an issue.
+    if not certifications:
+        warnings.append("No certifications were detected.")
+
+    # Calculate a simple completeness score.
+    checks = [
+        bool(name),
+        bool(email),
+        bool(skills),
+        bool(education),
+        bool(experience_records),
+    ]
+
+    completeness_score = round(
+        (sum(checks) / len(checks)) * 100,
+        2,
+    )
+
+    if issues:
+        status = "invalid"
+    elif completeness_score >= 80:
+        status = "complete"
+    elif completeness_score >= 60:
+        status = "mostly_complete"
+    else:
+        status = "incomplete"
+
+    return {
+        "status": status,
+        "completeness_score": completeness_score,
+        "issues": issues,
+        "warnings": warnings,
+        "is_valid": not issues,
+    }
+
 def validate_candidate_profile(profile: Dict) -> Dict:
     """Validate and normalize the structure of a parsed candidate profile."""
     if not isinstance(profile, dict):

@@ -1,5 +1,6 @@
 from src.nlp_parser import (
     calculate_experience_months,
+    assess_candidate_profile_quality,
     calculate_total_experience_months,
     detect_sections,
     extract_certifications,
@@ -509,3 +510,78 @@ def test_validate_candidate_profile_rejects_invalid_profile():
         assert False
     except TypeError as error:
         assert str(error) == "Candidate profile must be a dictionary."
+
+
+def test_assess_candidate_profile_quality_complete_profile():
+    from src.nlp_parser import assess_candidate_profile_quality
+
+    profile = {
+        "name": "Jane Doe",
+        "email": "jane@example.com",
+        "skills": ["Python", "SQL"],
+        "education": ["BSc Computer Science"],
+        "experience_records": [
+            {
+                "job_title": "Software Developer",
+                "employer": "ABC Technologies",
+                "start_date": "2020-01",
+                "end_date": "2023-03",
+                "duration_months": 39,
+            }
+        ],
+        "certifications": ["AWS Cloud Practitioner"],
+    }
+
+    quality = assess_candidate_profile_quality(profile)
+
+    assert quality["status"] == "complete"
+    assert quality["completeness_score"] == 100.0
+    assert quality["is_valid"] is True
+    assert quality["issues"] == []
+
+
+def test_assess_candidate_profile_quality_incomplete_profile():
+    from src.nlp_parser import assess_candidate_profile_quality
+
+    profile = {
+        "name": "Jane Doe",
+        "email": "",
+        "skills": [],
+        "education": [],
+        "experience_records": [],
+        "certifications": [],
+    }
+
+    quality = assess_candidate_profile_quality(profile)
+
+    assert quality["status"] == "incomplete"
+    assert quality["completeness_score"] == 20.0
+    assert quality["is_valid"] is True
+    assert quality["issues"] == []
+    assert len(quality["warnings"]) > 0
+
+
+def test_assess_candidate_profile_quality_detects_invalid_experience():
+    from src.nlp_parser import assess_candidate_profile_quality
+
+    profile = {
+        "name": "Jane Doe",
+        "email": "jane@example.com",
+        "skills": ["Python"],
+        "education": ["BSc Computer Science"],
+        "experience_records": [
+            {
+                "job_title": "",
+                "employer": "",
+                "start_date": "",
+                "duration_months": -5,
+            }
+        ],
+        "certifications": [],
+    }
+
+    quality = assess_candidate_profile_quality(profile)
+
+    assert quality["status"] == "invalid"
+    assert quality["is_valid"] is False
+    assert len(quality["issues"]) > 0
