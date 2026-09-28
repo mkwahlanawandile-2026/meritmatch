@@ -163,6 +163,7 @@ def test_parse_resume_returns_structured_profile():
     assert "Software Developer" in profile["experience"]
     assert len(profile["experience_dates"]) == 2
 
+
 def test_extract_experience_records():
     records = extract_experience_records(SAMPLE_RESUME)
 
@@ -278,8 +279,14 @@ Data Analyst | Example Solutions | Apr 2023 - Present
     profile = parse_resume(text)
 
     assert len(profile["experience_records"]) == 2
-    assert profile["experience_records"][0]["job_title"] == "Software Developer"
-    assert profile["experience_records"][1]["job_title"] == "Data Analyst"
+    assert profile["experience_records"][0]["job_title"] == (
+        "Software Developer"
+    )
+    assert profile["experience_records"][1]["job_title"] == (
+        "Data Analyst"
+    )
+
+
 def test_normalize_experience_record():
     record = {
         "job_title": "  Software   Developer  ",
@@ -395,3 +402,52 @@ def test_get_current_experience():
     assert current["job_title"] == "Data Analyst"
     assert current["employer"] == "Example Solutions"
     assert current["is_current"] is True
+
+
+# Step 8.6: normalized experience is integrated into the candidate profile.
+
+def test_parse_resume_contains_total_experience_months():
+    profile = parse_resume(SAMPLE_RESUME)
+
+    assert "total_experience_months" in profile
+    assert isinstance(profile["total_experience_months"], int)
+    assert profile["total_experience_months"] > 0
+
+
+def test_parse_resume_contains_current_experience():
+    profile = parse_resume(SAMPLE_RESUME)
+
+    assert "current_experience" in profile
+    assert profile["current_experience"] is not None
+    assert profile["current_experience"]["job_title"] == "Data Analyst"
+    assert profile["current_experience"]["employer"] == "XYZ Analytics"
+    assert profile["current_experience"]["is_current"] is True
+
+
+def test_parse_resume_returns_normalized_experience_records():
+    text = """
+Jane Doe
+
+Experience
+Software   Developer | ABC   Technologies | Jan 2020 - Mar 2023
+Data   Analyst | XYZ   Analytics | Jun 2023 - Present
+"""
+
+    profile = parse_resume(text)
+
+    assert len(profile["experience_records"]) == 2
+
+    assert profile["experience_records"][0]["job_title"] == (
+        "Software Developer"
+    )
+    assert profile["experience_records"][0]["employer"] == (
+        "ABC Technologies"
+    )
+
+    assert profile["experience_records"][1]["job_title"] == (
+        "Data Analyst"
+    )
+    assert profile["experience_records"][1]["employer"] == (
+        "XYZ Analytics"
+    )
+    assert profile["experience_records"][1]["is_current"] is True

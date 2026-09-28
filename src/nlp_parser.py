@@ -719,6 +719,21 @@ def parse_resume(text: str) -> Dict:
 
     experience_records = extract_experience_records(text)
 
+    # Normalize extracted experience records
+    normalized_experience = normalize_experience_records(
+        experience_records
+    )
+
+    # Calculate total experience without double-counting overlaps
+    total_experience_months = calculate_total_experience_months(
+        normalized_experience
+    )
+
+    # Identify the candidate's current experience
+    current_experience = get_current_experience(
+        normalized_experience
+    )
+
     return {
         "name": extract_name(text),
         "email": extract_email(text),
@@ -727,11 +742,12 @@ def parse_resume(text: str) -> Dict:
         "education": extract_education(text),
         "experience": experience,
         "experience_dates": experience_dates,
-        "experience_records": experience_records,
+        "experience_records": normalized_experience,
+        "total_experience_months": total_experience_months,
+        "current_experience": current_experience,
         "certifications": extract_certifications(text),
         "sections": detect_sections(text),
     }
-
 
 def normalize_experience_record(record):
     """Normalize a single extracted experience record."""
