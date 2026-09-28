@@ -760,6 +760,74 @@ def parse_resume(text: str) -> Dict:
     return profile
 
 
+def normalize_candidate_profile(profile: Dict) -> Dict:
+    """Create a consistent, matching-ready candidate profile."""
+    validated = validate_candidate_profile(profile)
+
+    normalized = dict(validated)
+
+    # Normalize candidate identity fields
+    normalized["name"] = " ".join(
+        normalized.get("name", "").split()
+    )
+
+    normalized["email"] = normalized.get(
+        "email",
+        "",
+    ).strip().lower()
+
+    normalized["phone"] = " ".join(
+        normalized.get("phone", "").split()
+    )
+
+    # Normalize simple list fields
+    for field in (
+        "skills",
+        "education",
+        "experience",
+        "certifications",
+    ):
+        values = normalized.get(field, [])
+
+        cleaned_values = []
+
+        for value in values:
+            if value is None:
+                continue
+
+            value = " ".join(str(value).split()).strip()
+
+            if value:
+                cleaned_values.append(value)
+
+        normalized[field] = cleaned_values
+
+    # Normalize structured experience records
+    normalized["experience_records"] = (
+        normalize_experience_records(
+            normalized.get("experience_records", [])
+        )
+    )
+
+    # Recalculate experience from normalized records
+    normalized["total_experience_months"] = (
+        calculate_total_experience_months(
+            normalized["experience_records"]
+        )
+    )
+
+    # Recalculate current experience
+    normalized["current_experience"] = get_current_experience(
+        normalized["experience_records"]
+    )
+
+    # Recalculate profile quality after normalization
+    normalized["profile_quality"] = (
+        assess_candidate_profile_quality(normalized)
+    )
+
+    return normalized
+
 def assess_candidate_profile_quality(profile: Dict) -> Dict:
     """Assess the completeness and quality of a parsed candidate profile."""
     if not isinstance(profile, dict):

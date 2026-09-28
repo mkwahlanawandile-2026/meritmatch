@@ -14,6 +14,7 @@ from src.nlp_parser import (
     extract_skills,
     get_current_experience,
     normalize_experience_record,
+    normalize_candidate_profile,
     normalize_experience_records,
     parse_resume,
 )
@@ -623,3 +624,104 @@ Jane Doe
     assert quality["completeness_score"] == 20.0
     assert quality["is_valid"] is True
     assert len(quality["warnings"]) > 0
+
+
+def test_normalize_candidate_profile():
+    from src.nlp_parser import normalize_candidate_profile
+
+    profile = {
+        "name": "  Jane    Doe  ",
+        "email": " JANE@EXAMPLE.COM ",
+        "phone": "  +27   71   123   4567 ",
+        "skills": [
+            " Python ",
+            "Machine   Learning",
+        ],
+        "education": [
+            " BSc   Computer Science "
+        ],
+        "experience": [],
+        "experience_records": [
+            {
+                "job_title": " Software   Developer ",
+                "employer": " ABC   Technologies ",
+                "start_date": "2020-01",
+                "end_date": "2023-03",
+                "duration_months": 39,
+            }
+        ],
+        "certifications": [
+            " AWS   Cloud Practitioner "
+        ],
+        "sections": {},
+    }
+
+    normalized = normalize_candidate_profile(profile)
+
+    assert normalized["name"] == "Jane Doe"
+    assert normalized["email"] == "jane@example.com"
+    assert normalized["phone"] == "+27 71 123 4567"
+    assert normalized["skills"] == [
+        "Python",
+        "Machine Learning",
+    ]
+    assert normalized["education"] == [
+        "BSc Computer Science"
+    ]
+    assert normalized["certifications"] == [
+        "AWS Cloud Practitioner"
+    ]
+
+    assert normalized["experience_records"][0]["job_title"] == (
+        "Software Developer"
+    )
+    assert normalized["experience_records"][0]["employer"] == (
+        "ABC Technologies"
+    )
+    assert normalized["total_experience_months"] == 39
+
+
+def test_normalize_candidate_profile_recalculates_quality():
+    from src.nlp_parser import normalize_candidate_profile
+
+    profile = {
+        "name": "Jane Doe",
+        "email": "JANE@EXAMPLE.COM",
+        "skills": ["Python"],
+        "education": ["BSc Computer Science"],
+        "experience_records": [
+            {
+                "job_title": "Developer",
+                "employer": "Example Corp",
+                "start_date": "2020-01",
+                "end_date": "2023-03",
+                "duration_months": 39,
+            }
+        ],
+        "certifications": [],
+        "sections": {},
+    }
+
+    normalized = normalize_candidate_profile(profile)
+
+    assert normalized["profile_quality"]["completeness_score"] == 100.0
+    assert normalized["profile_quality"]["status"] == "complete"
+
+
+def test_normalize_candidate_profile_handles_missing_fields():
+    from src.nlp_parser import normalize_candidate_profile
+
+    profile = {}
+
+    normalized = normalize_candidate_profile(profile)
+
+    assert normalized["name"] == ""
+    assert normalized["email"] == ""
+    assert normalized["phone"] == ""
+    assert normalized["skills"] == []
+    assert normalized["education"] == []
+    assert normalized["experience_records"] == []
+    assert normalized["certifications"] == []
+    assert normalized["total_experience_months"] == 0
+    assert normalized["current_experience"] is None
+    assert "profile_quality" in normalized
