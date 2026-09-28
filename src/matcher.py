@@ -849,4 +849,10 @@ def run_matching_pipeline(
 
     validated_result["score_consistency"] = consistency_result
 
+    explanation = build_match_explanation(
+        validated_result
+    )
+
+    validated_result["explanation"] = explanation
+
     return validated_result

@@ -1102,3 +1102,48 @@ def test_run_matching_pipeline_applies_employer_decision_rules():
     assert result["decision_rules"]["min_overall_score"] == 99.0
     assert result["decision"]["decision"] == "NOT_QUALIFIED"
     assert result["decision"]["eligible"] is False
+
+
+def test_run_matching_pipeline_includes_explanation():
+    from unittest.mock import patch
+    from src.matcher import run_matching_pipeline
+
+    candidate = {
+        "name": "Candidate Q",
+        "skills": ["python", "sql"],
+        "education": ["BSc Computer Science"],
+        "certifications": [],
+        "experience_records": [],
+        "total_experience_months": 48,
+    }
+
+    job = {
+        "job_title": "Python Developer",
+        "description": "Develop Python applications.",
+        "required_skills": ["Python"],
+        "preferred_skills": ["SQL"],
+        "minimum_experience_months": 24,
+        "education_requirements": [],
+        "certifications": [],
+        "decision_rules": {
+            "min_overall_score": 70.0,
+            "require_mandatory_requirements": True,
+            "require_semantic_threshold": False,
+        },
+    }
+
+    with patch(
+        "src.matcher.match_semantic_requirements",
+        return_value={
+            "score": 85.0,
+            "threshold": 75.0,
+            "meets_threshold": True,
+            "model": "test-model",
+        },
+    ):
+        result = run_matching_pipeline(candidate, job)
+
+    assert "explanation" in result
+    assert isinstance(result["explanation"], dict)
+    assert "strengths" in result["explanation"]
+    assert "gaps" in result["explanation"]
