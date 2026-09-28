@@ -23,3 +23,8 @@ assert abs(sum(WEIGHTS.values()) - 1.0) < 1e-9, "Weights must sum to 1.0"
 
 ANONYMIZE_BY_DEFAULT = True
 
+# Match decision thresholds
+DECISION_MIN_OVERALL_SCORE = 70.0
+DECISION_REQUIRE_MANDATORY_REQUIREMENTS = True
+DECISION_REQUIRE_SEMANTIC_THRESHOLD = True
+

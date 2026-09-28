@@ -690,13 +690,56 @@ def validate_match_score_consistency(match_result: Dict) -> Dict:
         "calculated_overall_score": calculated_overall,
     }
 
-def determine_match_decision(match_result: Dict) -> Dict:
-    """Determine candidate eligibility from an employer-defined match result."""
+def determine_match_decision(
+    match_result: Dict,
+    decision_rules: Dict = None,
+) -> Dict:
+    """Determine candidate eligibility using configurable decision rules."""
 
     if not isinstance(match_result, dict):
         raise TypeError("Match result must be a dictionary.")
 
     validated = validate_match_result(match_result)
+
+    from config import (
+        DECISION_MIN_OVERALL_SCORE,
+        DECISION_REQUIRE_MANDATORY_REQUIREMENTS,
+        DECISION_REQUIRE_SEMANTIC_THRESHOLD,
+    )
+
+    rules = {
+        "min_overall_score": DECISION_MIN_OVERALL_SCORE,
+        "require_mandatory_requirements": (
+            DECISION_REQUIRE_MANDATORY_REQUIREMENTS
+        ),
+        "require_semantic_threshold": (
+            DECISION_REQUIRE_SEMANTIC_THRESHOLD
+        ),
+    }
+
+    if decision_rules is not None:
+        if not isinstance(decision_rules, dict):
+            raise TypeError("Decision rules must be a dictionary.")
+
+        rules.update(decision_rules)
+
+    try:
+        min_overall_score = float(rules["min_overall_score"])
+    except (TypeError, ValueError):
+        min_overall_score = DECISION_MIN_OVERALL_SCORE
+
+    min_overall_score = min(
+        max(min_overall_score, 0.0),
+        100.0,
+    )
+
+    require_mandatory = bool(
+        rules["require_mandatory_requirements"]
+    )
+
+    require_semantic = bool(
+        rules["require_semantic_threshold"]
+    )
 
     required_requirements_met = validated.get(
         "required_requirements_met",
@@ -706,6 +749,11 @@ def determine_match_decision(match_result: Dict) -> Dict:
     scoring = validated.get("scoring", {})
     overall_score = scoring.get("overall_score", 0.0)
 
+    try:
+        overall_score = float(overall_score)
+    except (TypeError, ValueError):
+        overall_score = 0.0
+
     semantic = validated.get("semantic", {})
     semantic_meets_threshold = semantic.get(
         "meets_threshold",
@@ -713,31 +761,41 @@ def determine_match_decision(match_result: Dict) -> Dict:
     )
 
     reasons = []
+    eligible = True
 
-    if not required_requirements_met:
+    if require_mandatory and not required_requirements_met:
+        eligible = False
         reasons.append(
             "One or more mandatory job requirements are not met."
         )
 
-    if not semantic_meets_threshold:
+    if require_semantic and not semantic_meets_threshold:
+        eligible = False
         reasons.append(
             "Semantic similarity is below the configured threshold."
         )
 
-    if required_requirements_met and semantic_meets_threshold:
-        decision = "QUALIFIED"
-        eligible = True
+    if overall_score < min_overall_score:
+        eligible = False
         reasons.append(
-            "All mandatory requirements and the semantic threshold are met."
+            f"Overall score is below the required "
+            f"{min_overall_score:.2f}% threshold."
+        )
+
+    if eligible:
+        decision = "QUALIFIED"
+        reasons.append(
+            "The candidate satisfies all configured decision rules."
         )
     else:
         decision = "NOT_QUALIFIED"
-        eligible = False
 
     return {
         "decision": decision,
         "eligible": eligible,
         "overall_score": overall_score,
+        "minimum_overall_score": min_overall_score,
+        "rules": rules,
         "reasons": reasons,
     }
 

@@ -773,7 +773,7 @@ def test_determine_match_decision_qualifies_candidate():
     assert decision["eligible"] is True
     assert decision["overall_score"] == 86.0
     assert any(
-        "All mandatory requirements" in reason
+        "satisfies all configured decision rules" in reason
         for reason in decision["reasons"]
     )
 
@@ -846,4 +846,120 @@ def test_determine_match_decision_rejects_low_semantic_similarity():
         "Semantic similarity" in reason
         for reason in decision["reasons"]
     )
+
+def test_determine_match_decision_uses_custom_score_threshold():
+    from src.matcher import determine_match_decision
+
+    result = {
+        "candidate_name": "Candidate K",
+        "job_title": "Software Developer",
+        "required_requirements_met": True,
+        "required_skills": {},
+        "preferred_skills": {},
+        "experience": {},
+        "education": {},
+        "certifications": {},
+        "semantic": {
+            "score": 85.0,
+            "threshold": 75.0,
+            "meets_threshold": True,
+        },
+        "scoring": {
+            "overall_score": 72.0,
+            "component_scores": {},
+            "weighted_scores": {},
+            "weights": {},
+        },
+    }
+
+    decision = determine_match_decision(
+        result,
+        {
+            "min_overall_score": 70.0,
+        },
+    )
+
+    assert decision["decision"] == "QUALIFIED"
+    assert decision["eligible"] is True
+    assert decision["minimum_overall_score"] == 70.0
+
+
+def test_determine_match_decision_rejects_custom_score_threshold():
+    from src.matcher import determine_match_decision
+
+    result = {
+        "candidate_name": "Candidate L",
+        "job_title": "Data Analyst",
+        "required_requirements_met": True,
+        "required_skills": {},
+        "preferred_skills": {},
+        "experience": {},
+        "education": {},
+        "certifications": {},
+        "semantic": {
+            "score": 85.0,
+            "threshold": 75.0,
+            "meets_threshold": True,
+        },
+        "scoring": {
+            "overall_score": 72.0,
+            "component_scores": {},
+            "weighted_scores": {},
+            "weights": {},
+        },
+    }
+
+    decision = determine_match_decision(
+        result,
+        {
+            "min_overall_score": 80.0,
+        },
+    )
+
+    assert decision["decision"] == "NOT_QUALIFIED"
+    assert decision["eligible"] is False
+    assert decision["minimum_overall_score"] == 80.0
+    assert any(
+        "80.00%" in reason
+        for reason in decision["reasons"]
+    )
+
+
+def test_determine_match_decision_can_disable_optional_rules():
+    from src.matcher import determine_match_decision
+
+    result = {
+        "candidate_name": "Candidate M",
+        "job_title": "Developer",
+        "required_requirements_met": False,
+        "required_skills": {},
+        "preferred_skills": {},
+        "experience": {},
+        "education": {},
+        "certifications": {},
+        "semantic": {
+            "score": 60.0,
+            "threshold": 75.0,
+            "meets_threshold": False,
+        },
+        "scoring": {
+            "overall_score": 90.0,
+            "component_scores": {},
+            "weighted_scores": {},
+            "weights": {},
+        },
+    }
+
+    decision = determine_match_decision(
+        result,
+        {
+            "min_overall_score": 80.0,
+            "require_mandatory_requirements": False,
+            "require_semantic_threshold": False,
+        },
+    )
+
+    assert decision["decision"] == "QUALIFIED"
+    assert decision["eligible"] is True
+    assert decision["overall_score"] == 90.0
 
