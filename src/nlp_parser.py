@@ -1,7 +1,8 @@
 """Parse structured candidate information from extracted resume text."""
 
 import re
-from typing import Dict, List
+from datetime import date
+from typing import Dict, List, Optional, Tuple
 
 
 SECTION_ALIASES = {
@@ -36,6 +37,10 @@ SECTION_ALIASES = {
     },
 }
 
+
+# ---------------------------------------------------------------------------
+# General helpers
+# ---------------------------------------------------------------------------
 
 def _normalise_heading(text: str) -> str:
     """Normalize a possible section heading."""
@@ -80,6 +85,10 @@ def detect_sections(text: str) -> Dict[str, str]:
     }
 
 
+# ---------------------------------------------------------------------------
+# Candidate information
+# ---------------------------------------------------------------------------
+
 def extract_email(text: str) -> str:
     """Extract the first email address."""
     match = re.search(
@@ -120,6 +129,10 @@ def extract_name(text: str) -> str:
     return ""
 
 
+# ---------------------------------------------------------------------------
+# Skills
+# ---------------------------------------------------------------------------
+
 def extract_skills(text: str) -> List[str]:
     """Extract skills from the skills section."""
     sections = detect_sections(text)
@@ -141,6 +154,10 @@ def extract_skills(text: str) -> List[str]:
     return skills
 
 
+# ---------------------------------------------------------------------------
+# Education
+# ---------------------------------------------------------------------------
+
 def extract_education(text: str) -> List[str]:
     """Extract education entries from the education section."""
     sections = detect_sections(text)
@@ -156,8 +173,274 @@ def extract_education(text: str) -> List[str]:
     ]
 
 
+# ---------------------------------------------------------------------------
+# Experience
+# ---------------------------------------------------------------------------
+
+MONTHS = {
+    "jan": 1,
+    "january": 1,
+    "feb": 2,
+    "february": 2,
+    "mar": 3,
+    "march": 3,
+    "apr": 4,
+    "april": 4,
+    "may": 5,
+    "jun": 6,
+    "june": 6,
+    "jul": 7,
+    "july": 7,
+    "aug": 8,
+    "august": 8,
+    "sep": 9,
+    "sept": 9,
+    "september": 9,
+    "oct": 10,
+    "october": 10,
+    "nov": 11,
+    "november": 11,
+    "dec": 12,
+    "december": 12,
+}
+
+
+def _normalise_year(year: str) -> int:
+    """Convert two-digit years to four-digit years."""
+    value = int(year)
+
+    if value < 100:
+        return 2000 + value if value <= 50 else 1900 + value
+
+    return value
+
+
+def _parse_date_part(value: str) -> Optional[Tuple[int, int]]:
+    """
+    Parse a date component into (year, month).
+
+    Supported examples:
+        Jan 2020
+        January 2020
+        01/2020
+        2020
+    """
+    value = value.strip().lower()
+
+    # Month + year
+    match = re.fullmatch(
+        r"([a-z]+)\s+(\d{2,4})",
+        value,
+    )
+
+    if match:
+        month_name, year = match.groups()
+        month = MONTHS.get(month_name)
+
+        if month:
+            return _normalise_year(year), month
+
+    # Numeric month/year
+    match = re.fullmatch(
+        r"(0?[1-9]|1[0-2])\s*[/.-]\s*(\d{2,4})",
+        value,
+    )
+
+    if match:
+        month, year = match.groups()
+        return _normalise_year(year), int(month)
+
+    # Year only
+    match = re.fullmatch(r"\d{4}", value)
+
+    if match:
+        return int(value), 1
+
+    return None
+
+
+def _is_present(value: str) -> bool:
+    """Return True when an experience end date means the candidate is still employed."""
+    return value.strip().lower() in {
+        "present",
+        "current",
+        "now",
+        "ongoing",
+    }
+
+
+def _parse_experience_range(
+    text: str,
+) -> Optional[Tuple[str, str, int, int]]:
+    """
+    Extract an experience date range.
+
+    Returns:
+        (start_date, end_date, duration_months, duration_years)
+
+    Examples:
+        Jan 2020 - Mar 2023
+        January 2020 – March 2023
+        2020 - 2023
+        Jun 2022 - Present
+    """
+
+    # Split only on common date-range separators.
+    match = re.search(
+        r"(?P<start>"
+        r"(?:"
+        r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|"
+        r"may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|"
+        r"oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+\d{2,4}"
+        r"|"
+        r"\d{1,2}\s*[/.-]\s*\d{2,4}"
+        r"|"
+        r"\d{4}"
+        r")"
+        r")"
+        r"\s*(?:-|–|—|to)\s*"
+        r"(?P<end>"
+        r"(?:"
+        r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|"
+        r"may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|"
+        r"oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+\d{2,4}"
+        r"|"
+        r"\d{1,2}\s*[/.-]\s*\d{2,4}"
+        r"|"
+        r"\d{4}"
+        r"|"
+        r"present|current|now|ongoing"
+        r")"
+        r")",
+        text,
+        flags=re.IGNORECASE,
+    )
+
+    if not match:
+        return None
+
+    start_raw = match.group("start")
+    end_raw = match.group("end")
+
+    start = _parse_date_part(start_raw)
+
+    if not start:
+        return None
+
+    start_year, start_month = start
+
+    if _is_present(end_raw):
+        today = date.today()
+        end_year = today.year
+        end_month = today.month
+        end_date = "Present"
+    else:
+        end = _parse_date_part(end_raw)
+
+        if not end:
+            return None
+
+        end_year, end_month = end
+        end_date = f"{end_year:04d}-{end_month:02d}"
+
+    # Do not allow invalid reversed ranges.
+    if (end_year, end_month) < (start_year, start_month):
+        return None
+
+    duration_months = (
+        (end_year - start_year) * 12
+        + (end_month - start_month)
+        + 1
+    )
+
+    duration_years = duration_months // 12
+
+    start_date = f"{start_year:04d}-{start_month:02d}"
+
+    return (
+        start_date,
+        end_date,
+        duration_months,
+        duration_years,
+    )
+
+
+def extract_experience_dates(text: str) -> List[Dict]:
+    """
+    Extract experience date ranges from resume text.
+
+    Returns structured date information without assuming
+    a particular industry, company, department, or profession.
+    """
+    results = []
+
+    for line in text.splitlines():
+        line = line.strip()
+
+        if not line:
+            continue
+
+        parsed = _parse_experience_range(line)
+
+        if not parsed:
+            continue
+
+        start_date, end_date, duration_months, duration_years = parsed
+
+        results.append({
+            "raw": line,
+            "start_date": start_date,
+            "end_date": end_date,
+            "duration_months": duration_months,
+            "duration_years": duration_years,
+        })
+
+    return results
+
+
+def calculate_experience_months(
+    start_date: str,
+    end_date: Optional[str] = None,
+) -> int:
+    """
+    Calculate experience duration in months.
+
+    Dates must use YYYY-MM format.
+
+    Example:
+        calculate_experience_months("2020-01", "2023-03")
+        -> 39
+    """
+    start_year, start_month = map(int, start_date.split("-"))
+
+    if not end_date or end_date.lower() in {
+        "present",
+        "current",
+        "now",
+    }:
+        today = date.today()
+        end_year = today.year
+        end_month = today.month
+    else:
+        end_year, end_month = map(int, end_date.split("-"))
+
+    if (end_year, end_month) < (start_year, start_month):
+        return 0
+
+    return (
+        (end_year - start_year) * 12
+        + (end_month - start_month)
+        + 1
+    )
+
+
 def extract_experience(text: str) -> List[str]:
-    """Extract experience entries from the experience section."""
+    """
+    Extract experience entries from the experience section.
+
+    This preserves the original API so existing application
+    functionality remains compatible.
+    """
     sections = detect_sections(text)
     experience_text = sections.get("experience", "")
 
@@ -170,6 +453,10 @@ def extract_experience(text: str) -> List[str]:
         if line.strip()
     ]
 
+
+# ---------------------------------------------------------------------------
+# Certifications
+# ---------------------------------------------------------------------------
 
 def extract_certifications(text: str) -> List[str]:
     """Extract certification entries."""
@@ -186,15 +473,26 @@ def extract_certifications(text: str) -> List[str]:
     ]
 
 
+# ---------------------------------------------------------------------------
+# Complete candidate profile
+# ---------------------------------------------------------------------------
+
 def parse_resume(text: str) -> Dict:
     """Parse extracted resume text into a structured candidate profile."""
+
+    experience = extract_experience(text)
+    experience_dates = extract_experience_dates(
+        detect_sections(text).get("experience", "")
+    )
+
     return {
         "name": extract_name(text),
         "email": extract_email(text),
         "phone": extract_phone(text),
         "skills": extract_skills(text),
         "education": extract_education(text),
-        "experience": extract_experience(text),
+        "experience": experience,
+        "experience_dates": experience_dates,
         "certifications": extract_certifications(text),
         "sections": detect_sections(text),
     }
