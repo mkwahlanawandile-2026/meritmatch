@@ -377,3 +377,60 @@ def test_match_candidate_to_job_returns_transparent_component_results():
     assert "certifications" in result
     assert "component_scores" in result
     assert result["required_skills"]["all_required_skills_met"] is True
+
+
+def test_calculate_overall_score_uses_configured_weights():
+    from src.matcher import calculate_overall_score
+
+    result = calculate_overall_score(
+        skills_score=100,
+        experience_score=100,
+        education_score=100,
+        semantic_score=100,
+    )
+
+    assert result["overall_score"] == 100.0
+    assert result["weights"]["skills"] == 0.40
+    assert result["weights"]["experience"] == 0.25
+    assert result["weights"]["education"] == 0.15
+    assert result["weights"]["semantic"] == 0.20
+
+
+def test_calculate_overall_score_calculates_weighted_result():
+    from src.matcher import calculate_overall_score
+
+    result = calculate_overall_score(
+        skills_score=80,
+        experience_score=60,
+        education_score=100,
+        semantic_score=70,
+    )
+
+    expected = (
+        (80 * 0.40)
+        + (60 * 0.25)
+        + (100 * 0.15)
+        + (70 * 0.20)
+    )
+
+    assert result["overall_score"] == round(expected, 2)
+    assert result["weighted_scores"]["skills"] == 32.0
+    assert result["weighted_scores"]["experience"] == 15.0
+    assert result["weighted_scores"]["education"] == 15.0
+    assert result["weighted_scores"]["semantic"] == 14.0
+
+
+def test_calculate_overall_score_clamps_invalid_ranges():
+    from src.matcher import calculate_overall_score
+
+    result = calculate_overall_score(
+        skills_score=150,
+        experience_score=-20,
+        education_score="80",
+        semantic_score="invalid",
+    )
+
+    assert result["component_scores"]["skills"] == 100.0
+    assert result["component_scores"]["experience"] == 0.0
+    assert result["component_scores"]["education"] == 80.0
+    assert result["component_scores"]["semantic"] == 0.0

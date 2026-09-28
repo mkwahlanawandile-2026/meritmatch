@@ -307,3 +307,54 @@ def match_candidate_to_job(
         "education": education_result,
         "certifications": certification_result,
     }
+
+
+def calculate_overall_score(
+    skills_score: float,
+    experience_score: float,
+    education_score: float,
+    semantic_score: float,
+) -> Dict:
+    """Calculate the weighted overall candidate match score."""
+
+    from config import WEIGHTS
+
+    component_scores = {
+        "skills": skills_score,
+        "experience": experience_score,
+        "education": education_score,
+        "semantic": semantic_score,
+    }
+
+    normalized_scores = {}
+
+    for component, score in component_scores.items():
+        try:
+            numeric_score = float(score)
+        except (TypeError, ValueError):
+            numeric_score = 0.0
+
+        normalized_scores[component] = min(
+            max(numeric_score, 0.0),
+            100.0,
+        )
+
+    weighted_scores = {
+        component: round(
+            normalized_scores[component] * WEIGHTS[component],
+            2,
+        )
+        for component in WEIGHTS
+    }
+
+    overall_score = round(
+        sum(weighted_scores.values()),
+        2,
+    )
+
+    return {
+        "overall_score": overall_score,
+        "component_scores": normalized_scores,
+        "weights": dict(WEIGHTS),
+        "weighted_scores": weighted_scores,
+    }
