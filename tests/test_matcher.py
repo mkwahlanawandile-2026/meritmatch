@@ -1385,3 +1385,170 @@ def test_rank_candidates_for_job_prioritizes_qualified_candidates():
     assert results[0]["candidate_name"] == "Qualified Candidate"
     assert results[0]["decision"]["eligible"] is True
     assert results[1]["rank"] == 2
+
+
+def test_rank_candidates_for_job_handles_empty_candidate_list():
+    from src.matcher import rank_candidates_for_job
+
+    job = {
+        "job_title": "Python Developer",
+        "required_skills": ["Python"],
+    }
+
+    results = rank_candidates_for_job([], job)
+
+    assert results == []
+
+
+def test_rank_candidates_for_job_handles_single_candidate():
+    from unittest.mock import patch
+    from src.matcher import rank_candidates_for_job
+
+    candidate = {
+        "name": "Solo Candidate",
+        "skills": ["python"],
+        "education": ["BSc Computer Science"],
+        "certifications": [],
+        "experience_records": [],
+        "total_experience_months": 0,
+    }
+
+    job = {
+        "job_title": "Python Developer",
+        "required_skills": ["Python"],
+        "preferred_skills": [],
+        "minimum_experience_months": 0,
+        "education_requirements": [],
+        "certifications": [],
+        "decision_rules": {
+            "min_overall_score": 0.0,
+            "require_mandatory_requirements": True,
+            "require_semantic_threshold": False,
+        },
+    }
+
+    semantic_result = {
+        "score": 85.0,
+        "threshold": 75.0,
+        "meets_threshold": True,
+        "model": "test-model",
+    }
+
+    with patch(
+        "src.matcher.match_semantic_requirements",
+        return_value=semantic_result,
+    ):
+        results = rank_candidates_for_job([candidate], job)
+
+    assert len(results) == 1
+    assert results[0]["candidate_name"] == "Solo Candidate"
+    assert results[0]["rank"] == 1
+
+
+def test_rank_candidates_for_job_uses_name_as_deterministic_tie_breaker():
+    from unittest.mock import patch
+    from src.matcher import rank_candidates_for_job
+
+    candidates = [
+        {
+            "name": "Zane Candidate",
+            "skills": ["python"],
+            "education": [],
+            "certifications": [],
+            "experience_records": [],
+            "total_experience_months": 0,
+        },
+        {
+            "name": "Alice Candidate",
+            "skills": ["python"],
+            "education": [],
+            "certifications": [],
+            "experience_records": [],
+            "total_experience_months": 0,
+        },
+    ]
+
+    job = {
+        "job_title": "Python Developer",
+        "required_skills": ["Python"],
+        "preferred_skills": [],
+        "minimum_experience_months": 0,
+        "education_requirements": [],
+        "certifications": [],
+        "decision_rules": {
+            "min_overall_score": 0.0,
+            "require_mandatory_requirements": True,
+            "require_semantic_threshold": False,
+        },
+    }
+
+    semantic_result = {
+        "score": 85.0,
+        "threshold": 75.0,
+        "meets_threshold": True,
+        "model": "test-model",
+    }
+
+    with patch(
+        "src.matcher.match_semantic_requirements",
+        return_value=semantic_result,
+    ):
+        results = rank_candidates_for_job(candidates, job)
+
+    assert results[0]["candidate_name"] == "Alice Candidate"
+    assert results[1]["candidate_name"] == "Zane Candidate"
+    assert [result["rank"] for result in results] == [1, 2]
+
+
+def test_rank_candidates_for_job_keeps_qualified_candidates_before_unqualified():
+    from unittest.mock import patch
+    from src.matcher import rank_candidates_for_job
+
+    candidates = [
+        {
+            "name": "Unqualified High Score",
+            "skills": ["python"],
+            "education": [],
+            "certifications": [],
+            "experience_records": [],
+            "total_experience_months": 0,
+        },
+        {
+            "name": "Qualified Candidate",
+            "skills": ["python"],
+            "education": [],
+            "certifications": [],
+            "experience_records": [],
+            "total_experience_months": 0,
+        },
+    ]
+
+    job = {
+        "job_title": "Python Developer",
+        "required_skills": ["Python"],
+        "preferred_skills": [],
+        "minimum_experience_months": 0,
+        "education_requirements": [],
+        "certifications": [],
+        "decision_rules": {
+            "min_overall_score": 0.0,
+            "require_mandatory_requirements": True,
+            "require_semantic_threshold": False,
+        },
+    }
+
+    semantic_result = {
+        "score": 85.0,
+        "threshold": 75.0,
+        "meets_threshold": True,
+        "model": "test-model",
+    }
+
+    with patch(
+        "src.matcher.match_semantic_requirements",
+        return_value=semantic_result,
+    ):
+        results = rank_candidates_for_job(candidates, job)
+
+    assert len(results) == 2
+    assert all("rank" in result for result in results)
