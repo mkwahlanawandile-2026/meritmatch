@@ -82,3 +82,49 @@ def match_preferred_skills(
         "matched_skill_count": len(matched),
         "score": score,
     }
+
+
+def match_experience_requirement(
+    candidate_experience_months: int,
+    minimum_experience_months: int,
+) -> Dict:
+    """Compare candidate experience against the employer minimum."""
+
+    try:
+        candidate_months = max(
+            int(candidate_experience_months),
+            0,
+        )
+    except (TypeError, ValueError):
+        candidate_months = 0
+
+    try:
+        minimum_months = max(
+            int(minimum_experience_months),
+            0,
+        )
+    except (TypeError, ValueError):
+        minimum_months = 0
+
+    meets_requirement = candidate_months >= minimum_months
+
+    if minimum_months == 0:
+        score = 100.0
+    else:
+        score = round(
+            min(
+                (candidate_months / minimum_months) * 100,
+                100,
+            ),
+            2,
+        )
+
+    return {
+        "candidate_experience_months": candidate_months,
+        "minimum_required_months": minimum_months,
+        "experience_difference_months": (
+            candidate_months - minimum_months
+        ),
+        "meets_requirement": meets_requirement,
+        "score": score,
+    }

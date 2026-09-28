@@ -123,3 +123,45 @@ def test_match_preferred_skills_empty_requirements():
     assert result["matched_skills"] == []
     assert result["missing_skills"] == []
     assert result["score"] == 100.0
+
+
+def test_match_experience_requirement_met():
+    from src.matcher import match_experience_requirement
+
+    result = match_experience_requirement(
+        39,
+        24,
+    )
+
+    assert result["candidate_experience_months"] == 39
+    assert result["minimum_required_months"] == 24
+    assert result["experience_difference_months"] == 15
+    assert result["meets_requirement"] is True
+    assert result["score"] == 100.0
+
+
+def test_match_experience_requirement_not_met():
+    from src.matcher import match_experience_requirement
+
+    result = match_experience_requirement(
+        12,
+        24,
+    )
+
+    assert result["candidate_experience_months"] == 12
+    assert result["minimum_required_months"] == 24
+    assert result["experience_difference_months"] == -12
+    assert result["meets_requirement"] is False
+    assert result["score"] == 50.0
+
+
+def test_match_experience_requirement_no_minimum():
+    from src.matcher import match_experience_requirement
+
+    result = match_experience_requirement(
+        12,
+        0,
+    )
+
+    assert result["meets_requirement"] is True
+    assert result["score"] == 100.0
