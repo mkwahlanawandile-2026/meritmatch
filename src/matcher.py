@@ -897,3 +897,42 @@ def run_matching_pipeline(
     }
 
     return validated_result
+
+
+def rank_candidates_for_job(
+    candidates: list[Dict],
+    job_requirements: Dict,
+) -> list[Dict]:
+    """Rank multiple candidates against one employer-defined job."""
+
+    if not isinstance(candidates, list):
+        raise TypeError("Candidates must be a list.")
+
+    if not isinstance(job_requirements, dict):
+        raise TypeError("Job requirements must be a dictionary.")
+
+    ranked_results = []
+
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            raise TypeError("Each candidate must be a dictionary.")
+
+        result = run_matching_pipeline(
+            candidate,
+            job_requirements,
+        )
+
+        ranked_results.append(result)
+
+    ranked_results.sort(
+        key=lambda result: result.get(
+            "scoring",
+            {},
+        ).get(
+            "overall_score",
+            0.0,
+        ),
+        reverse=True,
+    )
+
+    return ranked_results

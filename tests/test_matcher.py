@@ -1198,3 +1198,65 @@ def test_run_matching_pipeline_builds_final_result_structure():
     assert "strengths" in final_result["explanation"]
     assert "score_consistency" in final_result
     assert "min_overall_score" in final_result["decision_rules"]
+
+
+def test_rank_candidates_for_job_orders_by_overall_score():
+    from unittest.mock import patch
+    from src.matcher import rank_candidates_for_job
+
+    candidates = [
+        {
+            "name": "Candidate Low",
+            "skills": ["python"],
+            "education": ["BSc Computer Science"],
+            "certifications": [],
+            "experience_records": [],
+            "total_experience_months": 24,
+        },
+        {
+            "name": "Candidate High",
+            "skills": ["python", "sql"],
+            "education": ["BSc Computer Science"],
+            "certifications": [],
+            "experience_records": [],
+            "total_experience_months": 60,
+        },
+    ]
+
+    job = {
+        "job_title": "Python Developer",
+        "required_skills": ["Python", "SQL"],
+        "preferred_skills": [],
+        "minimum_experience_months": 24,
+        "education_requirements": [],
+        "certifications": [],
+        "decision_rules": {
+            "min_overall_score": 70.0,
+            "require_mandatory_requirements": True,
+            "require_semantic_threshold": False,
+        },
+    }
+
+    semantic_result = {
+        "score": 85.0,
+        "threshold": 75.0,
+        "meets_threshold": True,
+        "model": "test-model",
+    }
+
+    with patch(
+        "src.matcher.match_semantic_requirements",
+        return_value=semantic_result,
+    ):
+        results = rank_candidates_for_job(
+            candidates,
+            job,
+        )
+
+    assert len(results) == 2
+    assert results[0]["candidate_name"] == "Candidate High"
+    assert results[1]["candidate_name"] == "Candidate Low"
+    assert (
+        results[0]["scoring"]["overall_score"]
+        >= results[1]["scoring"]["overall_score"]
+    )
