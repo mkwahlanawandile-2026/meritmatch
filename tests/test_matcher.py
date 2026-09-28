@@ -463,5 +463,56 @@ def test_match_candidate_to_job_includes_overall_scoring():
     assert "weights" in result["scoring"]
     assert "weighted_scores" in result["scoring"]
 
-    # Semantic similarity is not implemented yet.
-    assert result["scoring"]["component_scores"]["semantic"] == 0.0
+    assert "semantic" in result
+    assert "score" in result["semantic"]
+    assert 0.0 <= result["semantic"]["score"] <= 100.0
+    assert (
+        result["scoring"]["component_scores"]["semantic"]
+        == result["semantic"]["score"]
+    )
+
+
+def test_match_candidate_to_job_uses_semantic_score(monkeypatch):
+    from src.matcher import match_candidate_to_job
+
+    monkeypatch.setattr(
+        "src.matcher.match_semantic_requirements",
+        lambda candidate_text, job_text: {
+            "score": 80.0,
+            "threshold": 75.0,
+            "meets_threshold": True,
+            "model": "test-model",
+        },
+    )
+
+    candidate = {
+        "candidate_name": "Candidate D",
+        "skills": ["Python"],
+        "total_experience_months": 24,
+        "education": ["BSc Computer Science"],
+        "certifications": [],
+        "experience_records": [
+            {
+                "job_title": "Python Developer",
+                "employer": "Example Ltd",
+            }
+        ],
+    }
+
+    job = {
+        "job_title": "Python Developer",
+        "department": "Software Engineering",
+        "description": "Develop Python applications.",
+        "required_skills": ["Python"],
+        "preferred_skills": [],
+        "minimum_experience_months": 24,
+        "education_requirements": ["BSc Computer Science"],
+        "certifications": [],
+    }
+
+    result = match_candidate_to_job(candidate, job)
+
+    assert result["semantic"]["score"] == 80.0
+    assert result["semantic"]["meets_threshold"] is True
+    assert result["scoring"]["component_scores"]["semantic"] == 80.0
+    assert result["scoring"]["weighted_scores"]["semantic"] == 16.0

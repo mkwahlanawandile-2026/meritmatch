@@ -2,6 +2,8 @@
 
 from typing import Dict, List
 
+from src.semantic_matcher import match_semantic_requirements
+
 
 def match_required_skills(
     candidate_skills: List[str],
@@ -296,11 +298,71 @@ def match_candidate_to_job(
         "certifications": certification_result["score"],
     }
 
+    candidate_semantic_text = " ".join(
+        [
+            str(candidate_profile.get("candidate_name", "")),
+            " ".join(
+                str(skill)
+                for skill in candidate_profile.get("skills", [])
+            ),
+            " ".join(
+                str(education)
+                for education in candidate_profile.get("education", [])
+            ),
+            " ".join(
+                str(certification)
+                for certification in candidate_profile.get(
+                    "certifications", []
+                )
+            ),
+            " ".join(
+                str(record.get("job_title", ""))
+                for record in candidate_profile.get(
+                    "experience_records", []
+                )
+                if isinstance(record, dict)
+            ),
+        ]
+    ).strip()
+
+    job_semantic_text = " ".join(
+        [
+            str(job_requirements.get("job_title", "")),
+            str(job_requirements.get("department", "")),
+            str(job_requirements.get("description", "")),
+            " ".join(
+                str(skill)
+                for skill in job_requirements.get("required_skills", [])
+            ),
+            " ".join(
+                str(skill)
+                for skill in job_requirements.get("preferred_skills", [])
+            ),
+            " ".join(
+                str(education)
+                for education in job_requirements.get(
+                    "education_requirements", []
+                )
+            ),
+            " ".join(
+                str(certification)
+                for certification in job_requirements.get(
+                    "certifications", []
+                )
+            ),
+        ]
+    ).strip()
+
+    semantic_result = match_semantic_requirements(
+        candidate_semantic_text,
+        job_semantic_text,
+    )
+
     scoring_result = calculate_overall_score(
         skills_score=required_skills_result["score"],
         experience_score=experience_result["score"],
         education_score=education_result["score"],
-        semantic_score=0.0,
+        semantic_score=semantic_result["score"],
     )
 
     return {
@@ -309,6 +371,7 @@ def match_candidate_to_job(
         "required_requirements_met": required_requirements_met,
         "component_scores": component_scores,
         "scoring": scoring_result,
+        "semantic": semantic_result,
         "required_skills": required_skills_result,
         "preferred_skills": preferred_skills_result,
         "experience": experience_result,
