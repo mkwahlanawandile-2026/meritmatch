@@ -227,11 +227,7 @@ def _parse_date_part(value: str) -> Optional[Tuple[int, int]]:
     """
     value = value.strip().lower()
 
-    # Month + year
-    match = re.fullmatch(
-        r"([a-z]+)\s+(\d{2,4})",
-        value,
-    )
+    match = re.fullmatch(r"([a-z]+)\s+(\d{2,4})", value)
 
     if match:
         month_name, year = match.groups()
@@ -240,7 +236,6 @@ def _parse_date_part(value: str) -> Optional[Tuple[int, int]]:
         if month:
             return _normalise_year(year), month
 
-    # Numeric month/year
     match = re.fullmatch(
         r"(0?[1-9]|1[0-2])\s*[/.-]\s*(\d{2,4})",
         value,
@@ -250,7 +245,6 @@ def _parse_date_part(value: str) -> Optional[Tuple[int, int]]:
         month, year = match.groups()
         return _normalise_year(year), int(month)
 
-    # Year only
     match = re.fullmatch(r"\d{4}", value)
 
     if match:
@@ -260,7 +254,7 @@ def _parse_date_part(value: str) -> Optional[Tuple[int, int]]:
 
 
 def _is_present(value: str) -> bool:
-    """Return True when an experience end date means the candidate is still employed."""
+    """Return True when an experience end date means employment continues."""
     return value.strip().lower() in {
         "present",
         "current",
@@ -275,17 +269,12 @@ def _parse_experience_range(
     """
     Extract an experience date range.
 
-    Returns:
-        (start_date, end_date, duration_months, duration_years)
-
     Examples:
         Jan 2020 - Mar 2023
         January 2020 – March 2023
         2020 - 2023
         Jun 2022 - Present
     """
-
-    # Split only on common date-range separators.
     match = re.search(
         r"(?P<start>"
         r"(?:"
@@ -343,7 +332,6 @@ def _parse_experience_range(
         end_year, end_month = end
         end_date = f"{end_year:04d}-{end_month:02d}"
 
-    # Do not allow invalid reversed ranges.
     if (end_year, end_month) < (start_year, start_month):
         return None
 
@@ -366,12 +354,7 @@ def _parse_experience_range(
 
 
 def extract_experience_dates(text: str) -> List[Dict]:
-    """
-    Extract experience date ranges from resume text.
-
-    Returns structured date information without assuming
-    a particular industry, company, department, or profession.
-    """
+    """Extract experience date ranges from resume text."""
     results = []
 
     for line in text.splitlines():
@@ -402,15 +385,7 @@ def calculate_experience_months(
     start_date: str,
     end_date: Optional[str] = None,
 ) -> int:
-    """
-    Calculate experience duration in months.
-
-    Dates must use YYYY-MM format.
-
-    Example:
-        calculate_experience_months("2020-01", "2023-03")
-        -> 39
-    """
+    """Calculate experience duration in months."""
     start_year, start_month = map(int, start_date.split("-"))
 
     if not end_date or end_date.lower() in {
@@ -435,12 +410,7 @@ def calculate_experience_months(
 
 
 def extract_experience(text: str) -> List[str]:
-    """
-    Extract experience entries from the experience section.
-
-    This preserves the original API so existing application
-    functionality remains compatible.
-    """
+    """Extract experience entries from the experience section."""
     sections = detect_sections(text)
     experience_text = sections.get("experience", "")
 
@@ -454,20 +424,166 @@ def extract_experience(text: str) -> List[str]:
     ]
 
 
+# ---------------------------------------------------------------------------
+# Robust experience records
+# ---------------------------------------------------------------------------
+
+def _clean_experience_line(line: str) -> str:
+    """Remove common CV bullets and surrounding whitespace."""
+    return re.sub(
+        r"^[\s\-\*\u2022\u25AA\u25CF]+",
+        "",
+        line.strip(),
+    ).strip()
+
+
+def _looks_like_date_range(line: str) -> bool:
+    """Return True when a line contains an experience date range."""
+    return _parse_experience_range(line) is not None
+
+
+def _split_inline_experience(line: str) -> Optional[Dict]:
+    """
+    Parse compact experience formats where title, employer and dates
+    appear on one line.
+
+    Examples:
+        Software Developer | ABC Technologies | Jan 2020 - Mar 2023
+        Software Developer, ABC Technologies - Jan 2020 - Mar 2023
+    """
+    parsed = _parse_experience_range(line)
+
+    if not parsed:
+        return None
+
+    start_date, end_date, duration_months, duration_years = parsed
+
+    match = re.search(
+        r"(?P<prefix>.*?)"
+        r"(?P<range>"
+        r"(?:"
+        r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|"
+        r"may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|"
+        r"oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+\d{2,4}"
+        r"|"
+        r"\d{1,2}\s*[/.-]\s*\d{2,4}"
+        r"|"
+        r"\d{4}"
+        r")"
+        r"\s*(?:-|–|—|to)\s*"
+        r"(?:"
+        r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|"
+        r"may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|"
+        r"oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+\d{2,4}"
+        r"|"
+        r"\d{1,2}\s*[/.-]\s*\d{2,4}"
+        r"|"
+        r"\d{4}"
+        r"|"
+        r"present|current|now|ongoing"
+        r")"
+        r")",
+        line,
+        flags=re.IGNORECASE,
+    )
+
+    if not match:
+        return None
+
+    prefix = match.group("prefix").strip(" |,;:-")
+
+    if not prefix:
+        return None
+
+    parts = [
+        part.strip()
+        for part in re.split(r"\s*\|\s*|\s+;\s*|;", prefix)
+        if part.strip()
+    ]
+
+    if len(parts) >= 2:
+        job_title = parts[0]
+        employer = parts[1]
+    else:
+        comma_parts = [
+            part.strip()
+            for part in re.split(r"\s*,\s*", prefix)
+            if part.strip()
+        ]
+
+        if len(comma_parts) >= 2:
+            job_title = comma_parts[0]
+            employer = comma_parts[1]
+        else:
+            job_title = prefix
+            employer = ""
+
+    return {
+        "job_title": job_title,
+        "employer": employer,
+        "start_date": start_date,
+        "end_date": end_date,
+        "duration_months": duration_months,
+        "duration_years": duration_years,
+    }
+
+
+def _looks_like_responsibility(line: str) -> bool:
+    """Identify common responsibility/description lines."""
+    stripped = line.strip()
+
+    if not stripped:
+        return True
+
+    if re.match(r"^[\-\*\u2022\u25AA\u25CF]", stripped):
+        return True
+
+    lowered = stripped.lower()
+
+    responsibility_starts = (
+        "responsible for ",
+        "developed ",
+        "designed ",
+        "implemented ",
+        "managed ",
+        "maintained ",
+        "created ",
+        "led ",
+        "worked on ",
+        "collaborated ",
+        "assisted ",
+        "supported ",
+        "performed ",
+        "analyzed ",
+        "analysed ",
+        "built ",
+        "using ",
+    )
+
+    return lowered.startswith(responsibility_starts)
+
+
 def extract_experience_records(text: str) -> List[Dict]:
     """
-    Extract structured employment records from the experience section.
+    Extract structured employment records from common CV layouts.
 
-    Each record contains:
-        - job_title
-        - employer
-        - start_date
-        - end_date
-        - duration_months
-        - duration_years
+    Supported layouts include:
 
-    The parser remains industry-neutral. It does not assume a specific
-    company, department, profession, or employer requirement.
+        Job Title
+        Employer
+        Jan 2020 - Mar 2023
+
+        Job Title | Employer | Jan 2020 - Mar 2023
+
+        Job Title, Employer
+        January 2020 - March 2023
+
+        Employer
+        Job Title
+        2020 - Present
+
+    The parser remains industry-neutral and does not assume any
+    particular company, department, profession, or employer rule.
     """
     sections = detect_sections(text)
     experience_text = sections.get("experience", "")
@@ -476,69 +592,99 @@ def extract_experience_records(text: str) -> List[Dict]:
         return []
 
     lines = [
-        line.strip()
+        _clean_experience_line(line)
         for line in experience_text.splitlines()
         if line.strip()
     ]
 
-    records = []
-    current_record = None
+    records: List[Dict] = []
+    current_lines: List[str] = []
+
+    def save_record(record: Optional[Dict]) -> None:
+        if not record:
+            return
+
+        if not record.get("job_title") and not record.get("employer"):
+            return
+
+        records.append(record)
 
     for line in lines:
-        parsed_date = _parse_experience_range(line)
+        # ---------------------------------------------------------------
+        # Compact one-line experience entry.
+        # ---------------------------------------------------------------
+        inline_record = _split_inline_experience(line)
+
+        if inline_record:
+            save_record(inline_record)
+            current_lines = []
+            continue
 
         # ---------------------------------------------------------------
-        # A date line completes the current employment record.
+        # Date line completes the current multi-line record.
         # ---------------------------------------------------------------
+        parsed_date = _parse_experience_range(line)
+
         if parsed_date:
             start_date, end_date, duration_months, duration_years = parsed_date
 
-            if current_record is None:
-                current_record = {
-                    "job_title": "",
-                    "employer": "",
-                }
+            if current_lines:
+                if len(current_lines) == 1:
+                    job_title = current_lines[0]
+                    employer = ""
+                else:
+                    first = current_lines[0]
+                    second = current_lines[1]
 
-            current_record.update({
-                "start_date": start_date,
-                "end_date": end_date,
-                "duration_months": duration_months,
-                "duration_years": duration_years,
-            })
+                    # If the first line looks like a company and the
+                    # second looks like a role, preserve both.
+                    if (
+                        re.search(
+                            r"\b(inc|llc|ltd|limited|corp|corporation|"
+                            r"company|technologies|solutions|group)\b",
+                            first,
+                            re.IGNORECASE,
+                        )
+                        and not re.search(
+                            r"\b(inc|llc|ltd|limited|corp|corporation|"
+                            r"company|technologies|solutions|group)\b",
+                            second,
+                            re.IGNORECASE,
+                        )
+                    ):
+                        employer = first
+                        job_title = second
+                    else:
+                        job_title = first
+                        employer = second
 
-            # Only save records that contain useful employment information.
-            if (
-                current_record["job_title"]
-                or current_record["employer"]
-            ):
-                records.append(current_record)
+                save_record({
+                    "job_title": job_title,
+                    "employer": employer,
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "duration_months": duration_months,
+                    "duration_years": duration_years,
+                })
 
-            current_record = None
+            current_lines = []
             continue
 
         # ---------------------------------------------------------------
-        # First non-date line = job title.
+        # Ignore responsibility lines when they occur after a probable
+        # role/employer pair.
         # ---------------------------------------------------------------
-        if current_record is None:
-            current_record = {
-                "job_title": line,
-                "employer": "",
-            }
-
-        # ---------------------------------------------------------------
-        # Second non-date line = employer.
-        # ---------------------------------------------------------------
-        elif not current_record["employer"]:
-            current_record["employer"] = line
-
-        # ---------------------------------------------------------------
-        # Additional lines are currently ignored.
-        # Responsibilities/descriptions will be handled later.
-        # ---------------------------------------------------------------
-        else:
+        if _looks_like_responsibility(line):
             continue
+
+        current_lines.append(line)
+
+        # Prevent descriptions from accumulating indefinitely.
+        if len(current_lines) > 3:
+            current_lines = current_lines[-3:]
 
     return records
+
 
 # ---------------------------------------------------------------------------
 # Certifications
@@ -562,9 +708,9 @@ def extract_certifications(text: str) -> List[str]:
 # ---------------------------------------------------------------------------
 # Complete candidate profile
 # ---------------------------------------------------------------------------
+
 def parse_resume(text: str) -> Dict:
     """Parse extracted resume text into a structured candidate profile."""
-
     experience = extract_experience(text)
 
     experience_dates = extract_experience_dates(

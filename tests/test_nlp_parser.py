@@ -185,3 +185,94 @@ def test_parse_resume_contains_experience_records():
     assert profile["experience_records"][0]["job_title"] == (
         "Software Developer"
     )
+
+
+def test_experience_records_inline_pipe_format():
+    text = """
+Jane Doe
+
+Experience
+Software Developer | ABC Technologies | Jan 2020 - Mar 2023
+"""
+
+    records = extract_experience_records(text)
+
+    assert len(records) == 1
+    assert records[0]["job_title"] == "Software Developer"
+    assert records[0]["employer"] == "ABC Technologies"
+    assert records[0]["start_date"] == "2020-01"
+    assert records[0]["end_date"] == "2023-03"
+    assert records[0]["duration_months"] == 39
+
+
+def test_experience_records_inline_comma_format():
+    text = """
+Jane Doe
+
+Experience
+Data Analyst, Example Solutions - January 2021 - December 2022
+"""
+
+    records = extract_experience_records(text)
+
+    assert len(records) == 1
+    assert records[0]["job_title"] == "Data Analyst"
+    assert records[0]["employer"] == "Example Solutions"
+    assert records[0]["start_date"] == "2021-01"
+    assert records[0]["end_date"] == "2022-12"
+
+
+def test_experience_records_employer_first_layout():
+    text = """
+Jane Doe
+
+Experience
+ABC Technologies
+Software Developer
+2020 - Present
+"""
+
+    records = extract_experience_records(text)
+
+    assert len(records) == 1
+    assert records[0]["employer"] == "ABC Technologies"
+    assert records[0]["job_title"] == "Software Developer"
+    assert records[0]["start_date"] == "2020-01"
+    assert records[0]["end_date"] == "Present"
+
+
+def test_experience_records_ignore_responsibilities():
+    text = """
+Jane Doe
+
+Experience
+Software Developer
+ABC Technologies
+Jan 2020 - Mar 2023
+- Developed software applications
+- Managed database systems
+- Collaborated with engineering teams
+"""
+
+    records = extract_experience_records(text)
+
+    assert len(records) == 1
+    assert records[0]["job_title"] == "Software Developer"
+    assert records[0]["employer"] == "ABC Technologies"
+
+
+def test_parse_resume_contains_robust_experience_records():
+    text = """
+Jane Doe
+jane.doe@example.com
+
+Experience
+Software Developer | ABC Technologies | Jan 2020 - Mar 2023
+Data Analyst | Example Solutions | Apr 2023 - Present
+"""
+
+    profile = parse_resume(text)
+
+    assert len(profile["experience_records"]) == 2
+    assert profile["experience_records"][0]["job_title"] == "Software Developer"
+    assert profile["experience_records"][1]["job_title"] == "Data Analyst"
