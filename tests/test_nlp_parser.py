@@ -6,6 +6,7 @@ from src.nlp_parser import (
     extract_email,
     extract_experience,
     extract_experience_dates,
+    extract_experience_records,
     extract_name,
     extract_phone,
     extract_skills,
@@ -156,5 +157,31 @@ def test_parse_resume_returns_structured_profile():
     assert "Python" in profile["skills"]
     assert "BSc Computer Science" in profile["education"]
     assert "Software Developer" in profile["experience"]
-
     assert len(profile["experience_dates"]) == 2
+
+def test_extract_experience_records():
+    records = extract_experience_records(SAMPLE_RESUME)
+
+    assert len(records) == 2
+
+    assert records[0]["job_title"] == "Software Developer"
+    assert records[0]["employer"] == "ABC Technologies"
+    assert records[0]["start_date"] == "2020-01"
+    assert records[0]["end_date"] == "2023-03"
+    assert records[0]["duration_months"] == 39
+
+    assert records[1]["job_title"] == "Data Analyst"
+    assert records[1]["employer"] == "XYZ Analytics"
+    assert records[1]["start_date"] == "2023-06"
+    assert records[1]["end_date"] == "Present"
+
+
+def test_parse_resume_contains_experience_records():
+    profile = parse_resume(SAMPLE_RESUME)
+
+    assert "experience_records" in profile
+    assert len(profile["experience_records"]) == 2
+
+    assert profile["experience_records"][0]["job_title"] == (
+        "Software Developer"
+    )
