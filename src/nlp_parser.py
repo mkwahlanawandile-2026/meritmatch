@@ -1,6 +1,8 @@
 """Parse structured candidate information from extracted resume text."""
 
 import re
+import json
+from pathlib import Path
 from datetime import date
 from typing import Dict, List, Optional, Tuple
 
@@ -760,6 +762,90 @@ def parse_resume(text: str) -> Dict:
     return profile
 
 
+def load_skills_taxonomy() -> Dict[str, List[str]]:
+    """Load the canonical skill taxonomy from the project data directory."""
+    taxonomy_path = Path(__file__).resolve().parent.parent / "data" / "skills_taxonomy.json"
+
+    if not taxonomy_path.exists():
+        return {}
+
+    try:
+        with taxonomy_path.open(
+            "r",
+            encoding="utf-8",
+        ) as file:
+            taxonomy = json.load(file)
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+    return taxonomy if isinstance(taxonomy, dict) else {}
+
+
+def normalize_skill(skill: str, taxonomy: Optional[Dict] = None) -> str:
+    """Normalize a single skill to its canonical taxonomy name."""
+    if not skill:
+        return ""
+
+    cleaned_skill = " ".join(
+        str(skill).strip().split()
+    ).lower()
+
+    if not cleaned_skill:
+        return ""
+
+    taxonomy = taxonomy if taxonomy is not None else load_skills_taxonomy()
+
+    for canonical, aliases in taxonomy.items():
+        canonical_normalized = " ".join(
+            str(canonical).strip().split()
+        ).lower()
+
+        if cleaned_skill == canonical_normalized:
+            return canonical
+
+        if isinstance(aliases, list):
+            for alias in aliases:
+                alias_normalized = " ".join(
+                    str(alias).strip().split()
+                ).lower()
+
+                if cleaned_skill == alias_normalized:
+                    return canonical
+
+    # Preserve unknown skills instead of discarding them.
+    return " ".join(str(skill).strip().split())
+
+
+def normalize_skills(
+    skills: List[str],
+    taxonomy: Optional[Dict] = None,
+) -> List[str]:
+    """Normalize skills and remove duplicate canonical values."""
+    if not skills:
+        return []
+
+    taxonomy = taxonomy if taxonomy is not None else load_skills_taxonomy()
+
+    normalized = []
+    seen = set()
+
+    for skill in skills:
+        canonical = normalize_skill(
+            skill,
+            taxonomy,
+        )
+
+        if not canonical:
+            continue
+
+        key = canonical.lower()
+
+        if key not in seen:
+            normalized.append(canonical)
+            seen.add(key)
+
+    return normalized
+
 def normalize_candidate_profile(profile: Dict) -> Dict:
     """Create a consistent, matching-ready candidate profile."""
     validated = validate_candidate_profile(profile)
@@ -780,9 +866,13 @@ def normalize_candidate_profile(profile: Dict) -> Dict:
         normalized.get("phone", "").split()
     )
 
-    # Normalize simple list fields
+    # Normalize skills through the canonical taxonomy
+    normalized["skills"] = normalize_skills(
+        normalized.get("skills", [])
+    )
+
+    # Normalize other simple list fields
     for field in (
-        "skills",
         "education",
         "experience",
         "certifications",

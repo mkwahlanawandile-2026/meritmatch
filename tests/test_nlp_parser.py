@@ -14,6 +14,9 @@ from src.nlp_parser import (
     extract_skills,
     get_current_experience,
     normalize_experience_record,
+    load_skills_taxonomy,
+    normalize_skill,
+    normalize_skills,
     normalize_candidate_profile,
     normalize_experience_records,
     parse_resume,
@@ -725,3 +728,99 @@ def test_normalize_candidate_profile_handles_missing_fields():
     assert normalized["total_experience_months"] == 0
     assert normalized["current_experience"] is None
     assert "profile_quality" in normalized
+
+
+def test_load_skills_taxonomy():
+    from src.nlp_parser import load_skills_taxonomy
+
+    taxonomy = load_skills_taxonomy()
+
+    assert isinstance(taxonomy, dict)
+    assert "Python" in taxonomy
+    assert "JavaScript" in taxonomy
+    assert "PostgreSQL" in taxonomy
+    assert "Machine Learning" in taxonomy
+
+
+def test_normalize_skill_uses_canonical_names():
+    from src.nlp_parser import normalize_skill
+
+    assert normalize_skill("python") == "Python"
+    assert normalize_skill("PY") == "Python"
+    assert normalize_skill("js") == "JavaScript"
+    assert normalize_skill("ML") == "Machine Learning"
+    assert normalize_skill("sklearn") == "Scikit-learn"
+
+
+def test_normalize_skill_preserves_skill_distinctions():
+    from src.nlp_parser import normalize_skill
+
+    assert normalize_skill("sql") == "SQL"
+    assert normalize_skill("postgres") == "PostgreSQL"
+    assert normalize_skill("mysql") == "MySQL"
+    assert normalize_skill("git") == "Git"
+    assert normalize_skill("github") == "GitHub"
+    assert normalize_skill("agile") == "Agile"
+    assert normalize_skill("scrum") == "Scrum"
+
+
+def test_normalize_skill_preserves_unknown_skill():
+    from src.nlp_parser import normalize_skill
+
+    assert normalize_skill("Quantum Computing") == "Quantum Computing"
+
+
+def test_normalize_skills_removes_duplicates():
+    from src.nlp_parser import normalize_skills
+
+    skills = [
+        "python",
+        "Python",
+        "PY",
+        "javascript",
+        "js",
+        "SQL",
+        "sql",
+        "postgres",
+        "PostgreSQL",
+    ]
+
+    normalized = normalize_skills(skills)
+
+    assert normalized == [
+        "Python",
+        "JavaScript",
+        "SQL",
+        "PostgreSQL",
+    ]
+
+
+def test_normalize_candidate_profile_uses_skill_taxonomy():
+    from src.nlp_parser import normalize_candidate_profile
+
+    profile = {
+        "name": "Jane Doe",
+        "email": "jane@example.com",
+        "skills": [
+            "python",
+            "PY",
+            "javascript",
+            "js",
+            "postgres",
+            "SQL",
+        ],
+        "education": [],
+        "experience": [],
+        "experience_records": [],
+        "certifications": [],
+        "sections": {},
+    }
+
+    normalized = normalize_candidate_profile(profile)
+
+    assert normalized["skills"] == [
+        "Python",
+        "JavaScript",
+        "PostgreSQL",
+        "SQL",
+    ]
