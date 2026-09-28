@@ -1010,3 +1010,101 @@ def rank_candidates_for_job(
         result["ranking_summary"] = build_ranking_summary(result)
 
     return ranked_results
+
+
+def validate_ranking_summary(summary: Dict) -> Dict:
+    """Validate the stable API-facing structure of a ranking summary."""
+
+    if not isinstance(summary, dict):
+        raise TypeError("Ranking summary must be a dictionary.")
+
+    required_fields = {
+        "rank",
+        "candidate_name",
+        "job_title",
+        "overall_score",
+        "decision",
+        "eligible",
+        "required_requirements_met",
+        "strengths",
+        "gaps",
+        "score_breakdown",
+    }
+
+    missing_fields = required_fields - set(summary.keys())
+
+    if missing_fields:
+        raise ValueError(
+            f"Ranking summary is missing fields: "
+            f"{sorted(missing_fields)}"
+        )
+
+    if not isinstance(summary["rank"], int):
+        raise TypeError("Ranking rank must be an integer.")
+
+    if not isinstance(summary["candidate_name"], str):
+        raise TypeError("Candidate name must be a string.")
+
+    if not isinstance(summary["job_title"], str):
+        raise TypeError("Job title must be a string.")
+
+    if not isinstance(summary["overall_score"], (int, float)):
+        raise TypeError("Overall score must be numeric.")
+
+    if not isinstance(summary["decision"], str):
+        raise TypeError("Decision must be a string.")
+
+    if not isinstance(summary["eligible"], bool):
+        raise TypeError("Eligible must be a boolean.")
+
+    if not isinstance(
+        summary["required_requirements_met"],
+        bool,
+    ):
+        raise TypeError(
+            "Required requirements status must be a boolean."
+        )
+
+    if not isinstance(summary["strengths"], list):
+        raise TypeError("Strengths must be a list.")
+
+    if not isinstance(summary["gaps"], list):
+        raise TypeError("Gaps must be a list.")
+
+    score_breakdown = summary["score_breakdown"]
+
+    if not isinstance(score_breakdown, dict):
+        raise TypeError("Score breakdown must be a dictionary.")
+
+    required_score_fields = {
+        "skills",
+        "experience",
+        "education",
+        "semantic",
+    }
+
+    missing_score_fields = (
+        required_score_fields - set(score_breakdown.keys())
+    )
+
+    if missing_score_fields:
+        raise ValueError(
+            f"Score breakdown is missing fields: "
+            f"{sorted(missing_score_fields)}"
+        )
+
+    for field in required_score_fields:
+        if not isinstance(
+            score_breakdown[field],
+            (int, float),
+        ):
+            raise TypeError(
+                f"Score breakdown field '{field}' "
+                "must be numeric."
+            )
+
+    return {
+        "valid": True,
+        "missing_fields": [],
+        "message": "Ranking summary contract is valid.",
+    }

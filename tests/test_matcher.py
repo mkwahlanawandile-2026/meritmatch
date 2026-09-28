@@ -1695,3 +1695,206 @@ def test_rank_candidates_for_job_attaches_ranking_summary():
         result["ranking_summary"]["eligible"]
         == result["decision"]["eligible"]
     )
+
+
+def test_validate_ranking_summary_accepts_valid_summary():
+    from src.matcher import validate_ranking_summary
+
+    summary = {
+        "rank": 1,
+        "candidate_name": "Alice Candidate",
+        "job_title": "Python Developer",
+        "overall_score": 86.5,
+        "decision": "QUALIFIED",
+        "eligible": True,
+        "required_requirements_met": True,
+        "strengths": ["Python skill matched."],
+        "gaps": [],
+        "score_breakdown": {
+            "skills": 90.0,
+            "experience": 80.0,
+            "education": 85.0,
+            "semantic": 88.0,
+        },
+    }
+
+    result = validate_ranking_summary(summary)
+
+    assert result["valid"] is True
+    assert result["missing_fields"] == []
+    assert result["message"] == "Ranking summary contract is valid."
+
+
+def test_validate_ranking_summary_rejects_missing_field():
+    import pytest
+    from src.matcher import validate_ranking_summary
+
+    summary = {
+        "rank": 1,
+        "candidate_name": "Alice Candidate",
+        "job_title": "Python Developer",
+        "overall_score": 86.5,
+        "decision": "QUALIFIED",
+        "eligible": True,
+        "required_requirements_met": True,
+        "strengths": [],
+        "gaps": [],
+    }
+
+    with pytest.raises(ValueError, match="missing fields"):
+        validate_ranking_summary(summary)
+
+
+def test_validate_ranking_summary_rejects_invalid_score_type():
+    import pytest
+    from src.matcher import validate_ranking_summary
+
+    summary = {
+        "rank": 1,
+        "candidate_name": "Alice Candidate",
+        "job_title": "Python Developer",
+        "overall_score": "86.5",
+        "decision": "QUALIFIED",
+        "eligible": True,
+        "required_requirements_met": True,
+        "strengths": [],
+        "gaps": [],
+        "score_breakdown": {
+            "skills": 90.0,
+            "experience": 80.0,
+            "education": 85.0,
+            "semantic": 88.0,
+        },
+    }
+
+    with pytest.raises(TypeError, match="Overall score"):
+        validate_ranking_summary(summary)
+
+
+def test_validate_ranking_summary_accepts_valid_summary():
+    from src.matcher import validate_ranking_summary
+
+    summary = {
+        "rank": 1,
+        "candidate_name": "Alice Candidate",
+        "job_title": "Python Developer",
+        "overall_score": 86.5,
+        "decision": "QUALIFIED",
+        "eligible": True,
+        "required_requirements_met": True,
+        "strengths": ["Python skill matched."],
+        "gaps": [],
+        "score_breakdown": {
+            "skills": 90.0,
+            "experience": 80.0,
+            "education": 85.0,
+            "semantic": 88.0,
+        },
+    }
+
+    result = validate_ranking_summary(summary)
+
+    assert result["valid"] is True
+    assert result["missing_fields"] == []
+    assert result["message"] == "Ranking summary contract is valid."
+
+
+def test_validate_ranking_summary_rejects_missing_field():
+    import pytest
+    from src.matcher import validate_ranking_summary
+
+    summary = {
+        "rank": 1,
+        "candidate_name": "Alice Candidate",
+        "job_title": "Python Developer",
+        "overall_score": 86.5,
+        "decision": "QUALIFIED",
+        "eligible": True,
+        "required_requirements_met": True,
+        "strengths": [],
+        "gaps": [],
+    }
+
+    with pytest.raises(ValueError, match="missing fields"):
+        validate_ranking_summary(summary)
+
+
+def test_validate_ranking_summary_rejects_invalid_score_type():
+    import pytest
+    from src.matcher import validate_ranking_summary
+
+    summary = {
+        "rank": 1,
+        "candidate_name": "Alice Candidate",
+        "job_title": "Python Developer",
+        "overall_score": "86.5",
+        "decision": "QUALIFIED",
+        "eligible": True,
+        "required_requirements_met": True,
+        "strengths": [],
+        "gaps": [],
+        "score_breakdown": {
+            "skills": 90.0,
+            "experience": 80.0,
+            "education": 85.0,
+            "semantic": 88.0,
+        },
+    }
+
+    with pytest.raises(TypeError, match="Overall score"):
+        validate_ranking_summary(summary)
+
+
+def test_rank_candidates_for_job_produces_valid_api_ready_summary():
+    from unittest.mock import patch
+    from src.matcher import (
+        rank_candidates_for_job,
+        validate_ranking_summary,
+    )
+
+    candidate = {
+        "name": "API Candidate",
+        "skills": ["python"],
+        "education": [],
+        "certifications": [],
+        "experience_records": [],
+        "total_experience_months": 0,
+    }
+
+    job = {
+        "job_title": "Python Developer",
+        "required_skills": ["Python"],
+        "preferred_skills": [],
+        "minimum_experience_months": 0,
+        "education_requirements": [],
+        "certifications": [],
+        "decision_rules": {
+            "min_overall_score": 0.0,
+            "require_mandatory_requirements": True,
+            "require_semantic_threshold": False,
+        },
+    }
+
+    semantic_result = {
+        "score": 85.0,
+        "threshold": 75.0,
+        "meets_threshold": True,
+        "model": "test-model",
+    }
+
+    with patch(
+        "src.matcher.match_semantic_requirements",
+        return_value=semantic_result,
+    ):
+        results = rank_candidates_for_job(
+            [candidate],
+            job,
+        )
+
+    summary = results[0]["ranking_summary"]
+    validation = validate_ranking_summary(summary)
+
+    assert validation["valid"] is True
+    assert summary["rank"] == 1
+    assert summary["candidate_name"] == "API Candidate"
+    assert isinstance(summary["overall_score"], (int, float))
