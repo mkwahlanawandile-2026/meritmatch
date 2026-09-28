@@ -516,3 +516,101 @@ def test_match_candidate_to_job_uses_semantic_score(monkeypatch):
     assert result["semantic"]["meets_threshold"] is True
     assert result["scoring"]["component_scores"]["semantic"] == 80.0
     assert result["scoring"]["weighted_scores"]["semantic"] == 16.0
+
+
+def test_build_match_explanation_identifies_strengths_and_gaps():
+    from src.matcher import build_match_explanation
+
+    match_result = {
+        "candidate_name": "Candidate E",
+        "job_title": "Python Developer",
+        "required_requirements_met": False,
+        "required_skills": {
+            "matched_skills": ["python"],
+            "missing_skills": ["docker"],
+        },
+        "preferred_skills": {
+            "matched_skills": ["sql"],
+        },
+        "experience": {
+            "meets_requirement": True,
+        },
+        "education": {
+            "meets_requirement": True,
+        },
+        "certifications": {
+            "required_count": 0,
+            "meets_requirement": True,
+        },
+        "semantic": {
+            "score": 68.28,
+            "threshold": 75.0,
+        },
+        "scoring": {
+            "overall_score": 72.41,
+            "component_scores": {
+                "skills": 50.0,
+                "experience": 100.0,
+                "education": 100.0,
+                "semantic": 68.28,
+            },
+            "weighted_scores": {
+                "skills": 20.0,
+                "experience": 25.0,
+                "education": 15.0,
+                "semantic": 13.66,
+            },
+        },
+    }
+
+    result = build_match_explanation(match_result)
+
+    assert result["candidate_name"] == "Candidate E"
+    assert result["overall_score"] == 72.41
+    assert any("python" in item for item in result["strengths"])
+    assert any("docker" in item for item in result["gaps"])
+    assert any("Semantic similarity is below" in item for item in result["gaps"])
+
+
+def test_build_match_explanation_reports_met_requirements():
+    from src.matcher import build_match_explanation
+
+    match_result = {
+        "candidate_name": "Candidate F",
+        "job_title": "Data Analyst",
+        "required_requirements_met": True,
+        "required_skills": {
+            "matched_skills": ["python", "sql"],
+            "missing_skills": [],
+        },
+        "preferred_skills": {
+            "matched_skills": [],
+        },
+        "experience": {
+            "meets_requirement": True,
+        },
+        "education": {
+            "meets_requirement": True,
+        },
+        "certifications": {
+            "required_count": 0,
+            "meets_requirement": True,
+        },
+        "semantic": {
+            "score": 85.0,
+            "threshold": 75.0,
+        },
+        "scoring": {
+            "overall_score": 91.0,
+            "component_scores": {},
+            "weighted_scores": {},
+        },
+    }
+
+    result = build_match_explanation(match_result)
+
+    assert result["required_requirements_met"] is True
+    assert any("experience requirement is met" in item for item in result["strengths"])
+    assert any("Education requirement is met" in item for item in result["strengths"])
+    assert any("Semantic similarity meets" in item for item in result["strengths"])
+    assert result["gaps"] == []

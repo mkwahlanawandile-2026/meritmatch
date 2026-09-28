@@ -429,3 +429,91 @@ def calculate_overall_score(
         "weights": dict(WEIGHTS),
         "weighted_scores": weighted_scores,
     }
+
+
+def build_match_explanation(match_result: Dict) -> Dict:
+    """Build a human-readable explanation of a candidate match."""
+
+    if not isinstance(match_result, dict):
+        raise TypeError("Match result must be a dictionary.")
+
+    required_skills = match_result.get("required_skills", {})
+    preferred_skills = match_result.get("preferred_skills", {})
+    experience = match_result.get("experience", {})
+    education = match_result.get("education", {})
+    certifications = match_result.get("certifications", {})
+    semantic = match_result.get("semantic", {})
+    scoring = match_result.get("scoring", {})
+
+    strengths = []
+    gaps = []
+
+    matched_skills = required_skills.get("matched_skills", [])
+    missing_skills = required_skills.get("missing_skills", [])
+
+    if matched_skills:
+        strengths.append(
+            f"Matched required skills: {', '.join(matched_skills)}"
+        )
+
+    if missing_skills:
+        gaps.append(
+            f"Missing required skills: {', '.join(missing_skills)}"
+        )
+
+    preferred_matched = preferred_skills.get("matched_skills", [])
+
+    if preferred_matched:
+        strengths.append(
+            f"Matched preferred skills: {', '.join(preferred_matched)}"
+        )
+
+    if experience.get("meets_requirement"):
+        strengths.append("Minimum experience requirement is met.")
+    else:
+        gaps.append(
+            "Minimum experience requirement is not met."
+        )
+
+    if education.get("meets_requirement"):
+        strengths.append("Education requirement is met.")
+    elif education.get("missing_requirements"):
+        gaps.append(
+            "Missing education: "
+            + ", ".join(education["missing_requirements"])
+        )
+
+    if certifications.get("meets_requirement"):
+        if certifications.get("required_count", 0) > 0:
+            strengths.append("Certification requirements are met.")
+    elif certifications.get("missing_certifications"):
+        gaps.append(
+            "Missing certifications: "
+            + ", ".join(certifications["missing_certifications"])
+        )
+
+    semantic_score = semantic.get("score", 0.0)
+    semantic_threshold = semantic.get("threshold", 75.0)
+
+    if semantic_score >= semantic_threshold:
+        strengths.append(
+            f"Semantic similarity meets the {semantic_threshold:.0f}% threshold."
+        )
+    else:
+        gaps.append(
+            f"Semantic similarity is below the {semantic_threshold:.0f}% threshold."
+        )
+
+    return {
+        "candidate_name": match_result.get("candidate_name", ""),
+        "job_title": match_result.get("job_title", ""),
+        "overall_score": scoring.get("overall_score", 0.0),
+        "required_requirements_met": match_result.get(
+            "required_requirements_met",
+            False,
+        ),
+        "strengths": strengths,
+        "gaps": gaps,
+        "component_scores": scoring.get("component_scores", {}),
+        "weighted_scores": scoring.get("weighted_scores", {}),
+    }
