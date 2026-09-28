@@ -614,3 +614,131 @@ def test_build_match_explanation_reports_met_requirements():
     assert any("Education requirement is met" in item for item in result["strengths"])
     assert any("Semantic similarity meets" in item for item in result["strengths"])
     assert result["gaps"] == []
+def test_validate_match_result_normalizes_scores():
+    from src.matcher import validate_match_result
+
+    result = {
+        "required_requirements_met": 1,
+        "required_skills": {},
+        "preferred_skills": {},
+        "experience": {},
+        "education": {},
+        "certifications": {},
+        "semantic": {},
+        "scoring": {
+            "overall_score": 125,
+            "component_scores": {
+                "skills": 110,
+                "experience": -10,
+                "education": "invalid",
+            },
+            "weighted_scores": {
+                "skills": 120,
+            },
+            "weights": {
+                "skills": 0.40,
+            },
+        },
+    }
+
+    validated = validate_match_result(result)
+
+    assert validated["scoring"]["overall_score"] == 100.0
+    assert validated["scoring"]["component_scores"]["skills"] == 100.0
+    assert validated["scoring"]["component_scores"]["experience"] == 0.0
+    assert validated["scoring"]["component_scores"]["education"] == 0.0
+    assert validated["scoring"]["weighted_scores"]["skills"] == 100.0
+    assert validated["required_requirements_met"] is True
+
+
+def test_validate_match_result_creates_missing_sections():
+    from src.matcher import validate_match_result
+
+    result = validate_match_result({
+        "candidate_name": "Candidate G",
+        "scoring": {},
+    })
+
+    assert result["required_skills"] == {}
+    assert result["preferred_skills"] == {}
+    assert result["experience"] == {}
+    assert result["education"] == {}
+    assert result["certifications"] == {}
+    assert result["semantic"] == {}
+    assert result["scoring"]["overall_score"] == 0.0
+    assert result["scoring"]["component_scores"] == {}
+    assert result["scoring"]["weighted_scores"] == {}
+    assert result["scoring"]["weights"] == {}
+    assert result["required_requirements_met"] is False
+
+def test_validate_match_score_consistency_accepts_valid_scores():
+    from src.matcher import validate_match_score_consistency
+
+    result = {
+        "scoring": {
+            "component_scores": {
+                "skills": 80.0,
+                "experience": 100.0,
+                "education": 100.0,
+                "semantic": 70.0,
+            },
+            "weights": {
+                "skills": 0.40,
+                "experience": 0.25,
+                "education": 0.15,
+                "semantic": 0.20,
+            },
+            "weighted_scores": {
+                "skills": 32.0,
+                "experience": 25.0,
+                "education": 15.0,
+                "semantic": 14.0,
+            },
+            "overall_score": 86.0,
+        }
+    }
+
+    validation = validate_match_score_consistency(result)
+
+    assert validation["is_consistent"] is True
+    assert validation["issues"] == []
+    assert validation["calculated_overall_score"] == 86.0
+
+
+def test_validate_match_score_consistency_detects_mismatch():
+    from src.matcher import validate_match_score_consistency
+
+    result = {
+        "scoring": {
+            "component_scores": {
+                "skills": 80.0,
+                "experience": 100.0,
+                "education": 100.0,
+                "semantic": 70.0,
+            },
+            "weights": {
+                "skills": 0.40,
+                "experience": 0.25,
+                "education": 0.15,
+                "semantic": 0.20,
+            },
+            "weighted_scores": {
+                "skills": 40.0,
+                "experience": 25.0,
+                "education": 15.0,
+                "semantic": 14.0,
+            },
+            "overall_score": 94.0,
+        }
+    }
+
+    validation = validate_match_score_consistency(result)
+
+    assert validation["is_consistent"] is False
+    assert validation["issues"]
+    assert any(
+        "Weighted score mismatch" in issue
+        for issue in validation["issues"]
+    )
+    assert "Overall score does not match weighted scores." in validation["issues"]
+

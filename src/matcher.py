@@ -517,3 +517,176 @@ def build_match_explanation(match_result: Dict) -> Dict:
         "component_scores": scoring.get("component_scores", {}),
         "weighted_scores": scoring.get("weighted_scores", {}),
     }
+
+def validate_match_result(match_result: Dict) -> Dict:
+    """Validate and normalize a candidate-to-job match result."""
+
+    if not isinstance(match_result, dict):
+        raise TypeError("Match result must be a dictionary.")
+
+    validated = dict(match_result)
+
+    required_sections = (
+        "required_skills",
+        "preferred_skills",
+        "experience",
+        "education",
+        "certifications",
+        "semantic",
+        "scoring",
+    )
+
+    for section in required_sections:
+        if not isinstance(validated.get(section), dict):
+            validated[section] = {}
+
+    scoring = validated["scoring"]
+
+    overall_score = scoring.get("overall_score", 0.0)
+    try:
+        overall_score = float(overall_score)
+    except (TypeError, ValueError):
+        overall_score = 0.0
+
+    scoring["overall_score"] = min(
+        max(overall_score, 0.0),
+        100.0,
+    )
+
+    component_scores = scoring.get("component_scores", {})
+    if not isinstance(component_scores, dict):
+        component_scores = {}
+
+    normalized_component_scores = {}
+
+    for component, score in component_scores.items():
+        try:
+            numeric_score = float(score)
+        except (TypeError, ValueError):
+            numeric_score = 0.0
+
+        normalized_component_scores[component] = min(
+            max(numeric_score, 0.0),
+            100.0,
+        )
+
+    scoring["component_scores"] = normalized_component_scores
+
+    weighted_scores = scoring.get("weighted_scores", {})
+    if not isinstance(weighted_scores, dict):
+        weighted_scores = {}
+
+    normalized_weighted_scores = {}
+
+    for component, score in weighted_scores.items():
+        try:
+            numeric_score = float(score)
+        except (TypeError, ValueError):
+            numeric_score = 0.0
+
+        normalized_weighted_scores[component] = min(
+            max(numeric_score, 0.0),
+            100.0,
+        )
+
+    scoring["weighted_scores"] = normalized_weighted_scores
+
+    weights = scoring.get("weights", {})
+    if not isinstance(weights, dict):
+        weights = {}
+
+    scoring["weights"] = weights
+
+    validated["required_requirements_met"] = bool(
+        validated.get("required_requirements_met", False)
+    )
+
+    return validated
+
+def validate_match_score_consistency(match_result: Dict) -> Dict:
+    """Check whether weighted scores and overall score are consistent."""
+
+    if not isinstance(match_result, dict):
+        raise TypeError("Match result must be a dictionary.")
+
+    scoring = match_result.get("scoring", {})
+
+    if not isinstance(scoring, dict):
+        return {
+            "is_consistent": False,
+            "issues": ["Scoring data is missing or invalid."],
+        }
+
+    component_scores = scoring.get("component_scores", {})
+    weighted_scores = scoring.get("weighted_scores", {})
+    weights = scoring.get("weights", {})
+    overall_score = scoring.get("overall_score", 0.0)
+
+    issues = []
+
+    if not isinstance(component_scores, dict):
+        issues.append("Component scores are invalid.")
+        component_scores = {}
+
+    if not isinstance(weighted_scores, dict):
+        issues.append("Weighted scores are invalid.")
+        weighted_scores = {}
+
+    if not isinstance(weights, dict):
+        issues.append("Scoring weights are invalid.")
+        weights = {}
+
+    try:
+        reported_overall = float(overall_score)
+    except (TypeError, ValueError):
+        reported_overall = 0.0
+        issues.append("Overall score is invalid.")
+
+    calculated_weighted_scores = {}
+
+    for component, weight in weights.items():
+        try:
+            numeric_score = float(component_scores.get(component, 0.0))
+            numeric_weight = float(weight)
+        except (TypeError, ValueError):
+            issues.append(
+                f"Invalid score or weight for component: {component}."
+            )
+            continue
+
+        calculated_weighted_scores[component] = round(
+            numeric_score * numeric_weight,
+            2,
+        )
+
+    calculated_overall = round(
+        sum(calculated_weighted_scores.values()),
+        2,
+    )
+
+    for component, calculated_score in calculated_weighted_scores.items():
+        try:
+            reported_score = float(
+                weighted_scores.get(component, 0.0)
+            )
+        except (TypeError, ValueError):
+            issues.append(
+                f"Invalid weighted score for component: {component}."
+            )
+            continue
+
+        if abs(reported_score - calculated_score) > 0.01:
+            issues.append(
+                f"Weighted score mismatch for component: {component}."
+            )
+
+    if abs(reported_overall - calculated_overall) > 0.01:
+        issues.append("Overall score does not match weighted scores.")
+
+    return {
+        "is_consistent": not issues,
+        "issues": issues,
+        "calculated_weighted_scores": calculated_weighted_scores,
+        "calculated_overall_score": calculated_overall,
+    }
+
