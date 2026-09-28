@@ -899,6 +899,71 @@ def run_matching_pipeline(
     return validated_result
 
 
+def build_ranking_summary(result: Dict) -> Dict:
+    """Build a concise, explainable summary for a ranked candidate."""
+
+    if not isinstance(result, dict):
+        raise TypeError("Match result must be a dictionary.")
+
+    scoring = result.get("scoring", {})
+    decision = result.get("decision", {})
+    explanation = result.get("explanation", {})
+
+    return {
+        "rank": result.get("rank"),
+        "candidate_name": result.get(
+            "candidate_name",
+            "",
+        ),
+        "job_title": result.get(
+            "job_title",
+            "",
+        ),
+        "overall_score": scoring.get(
+            "overall_score",
+            0.0,
+        ),
+        "decision": decision.get(
+            "decision",
+            "",
+        ),
+        "eligible": decision.get(
+            "eligible",
+            False,
+        ),
+        "required_requirements_met": result.get(
+            "required_requirements_met",
+            False,
+        ),
+        "strengths": explanation.get(
+            "strengths",
+            [],
+        ),
+        "gaps": explanation.get(
+            "gaps",
+            [],
+        ),
+        "score_breakdown": {
+            "skills": scoring.get(
+                "skills_score",
+                0.0,
+            ),
+            "experience": scoring.get(
+                "experience_score",
+                0.0,
+            ),
+            "education": scoring.get(
+                "education_score",
+                0.0,
+            ),
+            "semantic": scoring.get(
+                "semantic_score",
+                0.0,
+            ),
+        },
+    }
+
+
 def rank_candidates_for_job(
     candidates: list[Dict],
     job_requirements: Dict,
@@ -942,5 +1007,6 @@ def rank_candidates_for_job(
 
     for rank, result in enumerate(ranked_results, start=1):
         result["rank"] = rank
+        result["ranking_summary"] = build_ranking_summary(result)
 
     return ranked_results

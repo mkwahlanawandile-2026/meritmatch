@@ -1552,3 +1552,146 @@ def test_rank_candidates_for_job_keeps_qualified_candidates_before_unqualified()
 
     assert len(results) == 2
     assert all("rank" in result for result in results)
+
+
+def test_build_ranking_summary_returns_clean_ranked_output():
+    from src.matcher import build_ranking_summary
+
+    result = {
+        "rank": 1,
+        "candidate_name": "Alice Candidate",
+        "job_title": "Python Developer",
+        "required_requirements_met": True,
+        "scoring": {
+            "overall_score": 86.5,
+            "skills_score": 90.0,
+            "experience_score": 80.0,
+            "education_score": 85.0,
+            "semantic_score": 88.0,
+        },
+        "decision": {
+            "decision": "QUALIFIED",
+            "eligible": True,
+        },
+        "explanation": {
+            "strengths": [
+                "Required Python skill matched.",
+            ],
+            "gaps": [
+                "Preferred Docker skill missing.",
+            ],
+        },
+    }
+
+    summary = build_ranking_summary(result)
+
+    assert summary["rank"] == 1
+    assert summary["candidate_name"] == "Alice Candidate"
+    assert summary["job_title"] == "Python Developer"
+    assert summary["overall_score"] == 86.5
+    assert summary["decision"] == "QUALIFIED"
+    assert summary["eligible"] is True
+    assert summary["required_requirements_met"] is True
+    assert summary["strengths"] == [
+        "Required Python skill matched.",
+    ]
+    assert summary["gaps"] == [
+        "Preferred Docker skill missing.",
+    ]
+    assert summary["score_breakdown"]["skills"] == 90.0
+    assert summary["score_breakdown"]["experience"] == 80.0
+    assert summary["score_breakdown"]["education"] == 85.0
+    assert summary["score_breakdown"]["semantic"] == 88.0
+
+
+def test_build_ranking_summary_handles_missing_explanation_data():
+    from src.matcher import build_ranking_summary
+
+    result = {
+        "rank": 2,
+        "candidate_name": "Bob Candidate",
+        "job_title": "Data Analyst",
+        "scoring": {
+            "overall_score": 72.0,
+        },
+        "decision": {
+            "decision": "NOT_QUALIFIED",
+            "eligible": False,
+        },
+        "required_requirements_met": False,
+    }
+
+    summary = build_ranking_summary(result)
+
+    assert summary["rank"] == 2
+    assert summary["candidate_name"] == "Bob Candidate"
+    assert summary["overall_score"] == 72.0
+    assert summary["decision"] == "NOT_QUALIFIED"
+    assert summary["eligible"] is False
+    assert summary["strengths"] == []
+    assert summary["gaps"] == []
+    assert summary["score_breakdown"]["skills"] == 0.0
+    assert summary["score_breakdown"]["experience"] == 0.0
+    assert summary["score_breakdown"]["education"] == 0.0
+    assert summary["score_breakdown"]["semantic"] == 0.0
+
+
+def test_rank_candidates_for_job_attaches_ranking_summary():
+    from unittest.mock import patch
+    from src.matcher import rank_candidates_for_job
+
+    candidate = {
+        "name": "Summary Candidate",
+        "skills": ["python"],
+        "education": [],
+        "certifications": [],
+        "experience_records": [],
+        "total_experience_months": 0,
+    }
+
+    job = {
+        "job_title": "Python Developer",
+        "required_skills": ["Python"],
+        "preferred_skills": [],
+        "minimum_experience_months": 0,
+        "education_requirements": [],
+        "certifications": [],
+        "decision_rules": {
+            "min_overall_score": 0.0,
+            "require_mandatory_requirements": True,
+            "require_semantic_threshold": False,
+        },
+    }
+
+    semantic_result = {
+        "score": 85.0,
+        "threshold": 75.0,
+        "meets_threshold": True,
+        "model": "test-model",
+    }
+
+    with patch(
+        "src.matcher.match_semantic_requirements",
+        return_value=semantic_result,
+    ):
+        results = rank_candidates_for_job(
+            [candidate],
+            job,
+        )
+
+    assert len(results) == 1
+
+    result = results[0]
+
+    assert "ranking_summary" in result
+    assert result["ranking_summary"]["rank"] == 1
+    assert result["ranking_summary"]["candidate_name"] == "Summary Candidate"
+    assert result["ranking_summary"]["job_title"] == "Python Developer"
+    assert (
+        result["ranking_summary"]["overall_score"]
+        == result["scoring"]["overall_score"]
+    )
+    assert (
+        result["ranking_summary"]["eligible"]
+        == result["decision"]["eligible"]
+    )
