@@ -810,3 +810,43 @@ def determine_match_decision(
         "reasons": reasons,
     }
 
+
+def run_matching_pipeline(
+    candidate_profile: Dict,
+    job_requirements: Dict,
+) -> Dict:
+    """Run the complete candidate-to-job matching pipeline."""
+
+    if not isinstance(candidate_profile, dict):
+        raise TypeError("Candidate profile must be a dictionary.")
+
+    if not isinstance(job_requirements, dict):
+        raise TypeError("Job requirements must be a dictionary.")
+
+    from src.nlp_parser import prepare_candidate_for_matching
+    from src.job_requirements import prepare_job_for_matching
+
+    prepared_candidate = prepare_candidate_for_matching(
+        candidate_profile
+    )
+
+    prepared_job = prepare_job_for_matching(
+        job_requirements
+    )
+
+    match_result = match_candidate_to_job(
+        prepared_candidate,
+        prepared_job,
+    )
+
+    validated_result = validate_match_result(
+        match_result
+    )
+
+    consistency_result = validate_match_score_consistency(
+        validated_result
+    )
+
+    validated_result["score_consistency"] = consistency_result
+
+    return validated_result

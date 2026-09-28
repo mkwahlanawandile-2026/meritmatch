@@ -1006,3 +1006,99 @@ def test_match_candidate_to_job_uses_job_decision_rules():
     assert result["decision"]["eligible"] is False
     assert result["decision"]["minimum_overall_score"] == 99.0
 
+
+
+def test_run_matching_pipeline_returns_complete_result():
+    from unittest.mock import patch
+    from src.matcher import run_matching_pipeline
+
+    candidate = {
+        "name": "Candidate O",
+        "email": "candidate@example.com",
+        "skills": ["python", "sql"],
+        "education": ["BSc Computer Science"],
+        "certifications": [],
+        "experience_records": [],
+        "total_experience_months": 48,
+    }
+
+    job = {
+        "job_title": "Python Developer",
+        "department": "Engineering",
+        "description": "Develop Python applications.",
+        "required_skills": ["Python"],
+        "preferred_skills": ["SQL"],
+        "minimum_experience_months": 24,
+        "education_requirements": [],
+        "certifications": [],
+        "decision_rules": {
+            "min_overall_score": 70.0,
+            "require_mandatory_requirements": True,
+            "require_semantic_threshold": False,
+        },
+    }
+
+    with patch(
+        "src.matcher.match_semantic_requirements",
+        return_value={
+            "score": 85.0,
+            "threshold": 75.0,
+            "meets_threshold": True,
+            "model": "test-model",
+        },
+    ):
+        result = run_matching_pipeline(candidate, job)
+
+    assert result["candidate_name"] == "Candidate O"
+    assert result["job_title"] == "Python Developer"
+    assert "required_skills" in result
+    assert "experience" in result
+    assert "education" in result
+    assert "certifications" in result
+    assert "semantic" in result
+    assert "scoring" in result
+    assert "score_consistency" in result
+    assert result["score_consistency"]["is_consistent"] is True
+
+
+def test_run_matching_pipeline_applies_employer_decision_rules():
+    from unittest.mock import patch
+    from src.matcher import run_matching_pipeline
+
+    candidate = {
+        "name": "Candidate P",
+        "skills": ["python"],
+        "education": ["BSc Computer Science"],
+        "certifications": [],
+        "experience_records": [],
+        "total_experience_months": 48,
+    }
+
+    job = {
+        "job_title": "Python Developer",
+        "required_skills": ["Python"],
+        "preferred_skills": [],
+        "minimum_experience_months": 24,
+        "education_requirements": [],
+        "certifications": [],
+        "decision_rules": {
+            "min_overall_score": 99.0,
+            "require_mandatory_requirements": True,
+            "require_semantic_threshold": False,
+        },
+    }
+
+    with patch(
+        "src.matcher.match_semantic_requirements",
+        return_value={
+            "score": 85.0,
+            "threshold": 75.0,
+            "meets_threshold": True,
+            "model": "test-model",
+        },
+    ):
+        result = run_matching_pipeline(candidate, job)
+
+    assert result["decision_rules"]["min_overall_score"] == 99.0
+    assert result["decision"]["decision"] == "NOT_QUALIFIED"
+    assert result["decision"]["eligible"] is False
