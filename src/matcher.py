@@ -690,3 +690,54 @@ def validate_match_score_consistency(match_result: Dict) -> Dict:
         "calculated_overall_score": calculated_overall,
     }
 
+def determine_match_decision(match_result: Dict) -> Dict:
+    """Determine candidate eligibility from an employer-defined match result."""
+
+    if not isinstance(match_result, dict):
+        raise TypeError("Match result must be a dictionary.")
+
+    validated = validate_match_result(match_result)
+
+    required_requirements_met = validated.get(
+        "required_requirements_met",
+        False,
+    )
+
+    scoring = validated.get("scoring", {})
+    overall_score = scoring.get("overall_score", 0.0)
+
+    semantic = validated.get("semantic", {})
+    semantic_meets_threshold = semantic.get(
+        "meets_threshold",
+        False,
+    )
+
+    reasons = []
+
+    if not required_requirements_met:
+        reasons.append(
+            "One or more mandatory job requirements are not met."
+        )
+
+    if not semantic_meets_threshold:
+        reasons.append(
+            "Semantic similarity is below the configured threshold."
+        )
+
+    if required_requirements_met and semantic_meets_threshold:
+        decision = "QUALIFIED"
+        eligible = True
+        reasons.append(
+            "All mandatory requirements and the semantic threshold are met."
+        )
+    else:
+        decision = "NOT_QUALIFIED"
+        eligible = False
+
+    return {
+        "decision": decision,
+        "eligible": eligible,
+        "overall_score": overall_score,
+        "reasons": reasons,
+    }
+

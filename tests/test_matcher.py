@@ -742,3 +742,108 @@ def test_validate_match_score_consistency_detects_mismatch():
     )
     assert "Overall score does not match weighted scores." in validation["issues"]
 
+def test_determine_match_decision_qualifies_candidate():
+    from src.matcher import determine_match_decision
+
+    result = {
+        "candidate_name": "Candidate H",
+        "job_title": "Software Developer",
+        "required_requirements_met": True,
+        "required_skills": {},
+        "preferred_skills": {},
+        "experience": {},
+        "education": {},
+        "certifications": {},
+        "semantic": {
+            "score": 85.0,
+            "threshold": 75.0,
+            "meets_threshold": True,
+        },
+        "scoring": {
+            "overall_score": 86.0,
+            "component_scores": {},
+            "weighted_scores": {},
+            "weights": {},
+        },
+    }
+
+    decision = determine_match_decision(result)
+
+    assert decision["decision"] == "QUALIFIED"
+    assert decision["eligible"] is True
+    assert decision["overall_score"] == 86.0
+    assert any(
+        "All mandatory requirements" in reason
+        for reason in decision["reasons"]
+    )
+
+
+def test_determine_match_decision_rejects_missing_requirements():
+    from src.matcher import determine_match_decision
+
+    result = {
+        "candidate_name": "Candidate I",
+        "job_title": "Data Analyst",
+        "required_requirements_met": False,
+        "required_skills": {},
+        "preferred_skills": {},
+        "experience": {},
+        "education": {},
+        "certifications": {},
+        "semantic": {
+            "score": 82.0,
+            "threshold": 75.0,
+            "meets_threshold": True,
+        },
+        "scoring": {
+            "overall_score": 82.0,
+            "component_scores": {},
+            "weighted_scores": {},
+            "weights": {},
+        },
+    }
+
+    decision = determine_match_decision(result)
+
+    assert decision["decision"] == "NOT_QUALIFIED"
+    assert decision["eligible"] is False
+    assert any(
+        "mandatory job requirements" in reason
+        for reason in decision["reasons"]
+    )
+
+
+def test_determine_match_decision_rejects_low_semantic_similarity():
+    from src.matcher import determine_match_decision
+
+    result = {
+        "candidate_name": "Candidate J",
+        "job_title": "Python Developer",
+        "required_requirements_met": True,
+        "required_skills": {},
+        "preferred_skills": {},
+        "experience": {},
+        "education": {},
+        "certifications": {},
+        "semantic": {
+            "score": 68.0,
+            "threshold": 75.0,
+            "meets_threshold": False,
+        },
+        "scoring": {
+            "overall_score": 78.0,
+            "component_scores": {},
+            "weighted_scores": {},
+            "weights": {},
+        },
+    }
+
+    decision = determine_match_decision(result)
+
+    assert decision["decision"] == "NOT_QUALIFIED"
+    assert decision["eligible"] is False
+    assert any(
+        "Semantic similarity" in reason
+        for reason in decision["reasons"]
+    )
+
