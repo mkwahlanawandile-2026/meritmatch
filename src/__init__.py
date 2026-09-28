@@ -1,1 +1,1 @@
-# MeritMatch core modules
+# MeritMatch core modules: parsing, matching, scoring
